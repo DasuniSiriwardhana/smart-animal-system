@@ -4,7 +4,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { PawPrint } from "lucide-react"
+import { PawPrint, Shield } from "lucide-react"
 
 export function Navbar() {
   const pathname = usePathname()
@@ -14,6 +14,7 @@ export function Navbar() {
     { href: "/pets", label: "Pets" },
     { href: "/analytics", label: "Analytics" },
     { href: "/insights", label: "Insights" },
+    { href: "/admin", label: "Admin", icon: Shield }, // Optional admin link
   ]
 
   return (
@@ -31,8 +32,9 @@ export function Navbar() {
                 <Button 
                   variant={pathname === item.href ? "default" : "ghost"} 
                   size="sm"
-                  className="transition-all"
+                  className="transition-all gap-2"
                 >
+                  {item.icon && <item.icon className="h-4 w-4" />}
                   {item.label}
                 </Button>
               </Link>
