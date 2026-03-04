@@ -4,10 +4,13 @@ export interface User {
   id: string
   email: string
   name: string
-  role?: 'user' | 'admin'
+  role: 'user' | 'admin'
+  plan: 'basic' | 'standard' | 'premium'  
+  planExpiry?: string
   avatar?: string
 }
 
+// ... rest of your types
 export interface Pet {
   id: string
   name: string
