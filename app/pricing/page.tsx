@@ -1,211 +1,635 @@
-// app/pricing/page.tsx
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { Navbar } from "@/components/layout/navbar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Check, X, Sparkles, PawPrint } from "lucide-react"
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Navbar } from '@/components/layout/navbar';
+import { useAuth } from '@/components/auth/auth-provider';
+import { supabase } from '@/lib/supabaseClient';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Crown, 
+  Sparkles, 
+  Shield, 
+  CheckCircle, 
+  XCircle,
+  Loader2,
+  CreditCard,
+  FileText,
+  TrendingUp,
+  Eye
+} from 'lucide-react';
+import Link from 'next/link';
 
-const plans = [
+type Subscription = {
+  id: string;
+  plan_type: 'basic' | 'standard' | 'premium';
+  status: string;
+  start_date: string;
+  end_date: string;
+  amount: number;
+};
+
+type Invoice = {
+  id: string;
+  amount: number;
+  status: string;
+  invoice_date: string;
+  plan_type: string;
+};
+
+type FeatureValue = string | boolean | number;
+
+// Feature categories and their details
+const featureCategories = [
   {
-    name: "Basic",
-    price: "Free",
-    description: "Perfect for getting started",
+    id: 'pet-management',
+    name: "Pet Management",
     features: [
-      { name: "Up to 3 pets", included: true },
-      { name: "Basic health tracking", included: true },
-      { name: "Daily logs (activity, mood, sleep)", included: true },
-      { name: "7-day history", included: true },
-      { name: "Email support", included: true },
-      { name: "AI Insights", included: false },
-      { name: "Advanced analytics", included: false },
-      { name: "Document storage", included: false },
-      { name: "Vet consultations", included: false },
-      { name: "Image recognition", included: false },
-    ],
-    buttonText: "Get Started",
-    buttonVariant: "outline" as const,
+      { id: 'max-pets', name: "Maximum Pets", basic: "2 pets", standard: "10 pets", premium: "Unlimited" },
+      { id: 'pet-profiles', name: "Pet Profiles", basic: true, standard: true, premium: true },
+      { id: 'pet-photos', name: "Pet Photos", basic: true, standard: true, premium: true },
+      { id: 'breed-info', name: "Breed Information", basic: true, standard: true, premium: true },
+      { id: 'weight-tracking', name: "Weight Tracking", basic: true, standard: true, premium: true },
+    ]
   },
   {
-    name: "Standard",
-    price: "LKR 1,500",
-    period: "/month",
-    description: "For dedicated pet parents",
-    popular: true,
+    id: 'health-monitoring',
+    name: "Health Monitoring",
     features: [
-      { name: "Unlimited pets", included: true },
-      { name: "Advanced health tracking", included: true },
-      { name: "Daily logs with AI analysis", included: true },
-      { name: "Unlimited history", included: true },
-      { name: "Priority support", included: true },
-      { name: "AI Insights & predictions", included: true },
-      { name: "Advanced analytics & charts", included: true },
-      { name: "Document storage (10GB)", included: true },
-      { name: "Vet chat consultations", included: true },
-      { name: "Image recognition", included: true },
-      { name: "Sensor data integration", included: true },
-      { name: "Export reports", included: true },
-    ],
-    buttonText: "Subscribe Now",
-    buttonVariant: "default" as const,
+      { id: 'daily-logs', name: "Daily Health Logs", basic: true, standard: true, premium: true },
+      { id: 'health-score', name: "Health Score from Logs", basic: true, standard: true, premium: true },
+      { id: 'sensor-data', name: "Real-time Sensor Data", basic: false, standard: false, premium: true },
+      { id: 'heart-rate', name: "Heart Rate Monitoring", basic: false, standard: false, premium: true },
+      { id: 'temperature', name: "Temperature Monitoring", basic: false, standard: false, premium: true },
+      { id: 'activity-tracking', name: "Activity Tracking", basic: false, standard: false, premium: true },
+      { id: 'sleep-analysis', name: "Sleep Analysis", basic: true, standard: true, premium: true },
+      { id: 'water-intake', name: "Water Intake Tracking", basic: true, standard: true, premium: true },
+    ]
   },
   {
-    name: "Premium",
-    price: "LKR 3,500",
-    period: "/month",
-    description: "For multiple pets & families",
+    id: 'ai-predictions',
+    name: "AI & Predictions",
     features: [
-      { name: "Everything in Standard", included: true },
-      { name: "Up to 10 pets", included: true },
-      { name: "5-year history", included: true },
-      { name: "24/7 phone support", included: true },
-      { name: "Advanced AI predictions", included: true },
-      { name: "Document storage (50GB)", included: true },
-      { name: "Video vet consultations", included: true },
-      { name: "Multiple users per account", included: true },
-      { name: "API access", included: true },
-      { name: "Custom reports", included: true },
-    ],
-    buttonText: "Contact Sales",
-    buttonVariant: "outline" as const,
+      { id: 'ai-insights', name: "AI Health Insights", basic: "Basic", standard: "Advanced", premium: "Full" },
+      { id: 'lstm-predictions', name: "LSTM Health Predictions", basic: false, standard: false, premium: true },
+      { id: 'disease-detection', name: "AI Disease Detection", basic: false, standard: false, premium: true },
+      { id: 'risk-alerts', name: "Health Risk Alerts", basic: false, standard: false, premium: true },
+      { id: 'anomaly-detection', name: "Anomaly Detection", basic: "1 anomaly", standard: "3 anomalies", premium: "Unlimited" },
+      { id: 'recommendations', name: "Health Recommendations", basic: "2/day", standard: "10/day", premium: "Unlimited" },
+      { id: 'predictive-analytics', name: "Predictive Analytics", basic: false, standard: false, premium: true },
+    ]
   },
-]
+  {
+    id: 'feeding-nutrition',
+    name: "Feeding & Nutrition",
+    features: [
+      { id: 'feeding-schedules', name: "Feeding Schedules", basic: "3 schedules", standard: "10 schedules", premium: "Unlimited" },
+      { id: 'meal-reminders', name: "Meal Reminders", basic: true, standard: true, premium: true },
+      { id: 'portion-tracking', name: "Portion Tracking", basic: true, standard: true, premium: true },
+      { id: 'brand-tracking', name: "Food Brand Tracking", basic: true, standard: true, premium: true },
+      { id: 'nutrition-analysis', name: "Nutrition Analysis", basic: false, standard: true, premium: true },
+    ]
+  },
+  {
+    id: 'medical-records',
+    name: "Medical Records",
+    features: [
+      { id: 'vaccinations', name: "Vaccination Records", basic: true, standard: true, premium: true },
+      { id: 'medications', name: "Medication Tracking", basic: true, standard: true, premium: true },
+      { id: 'vet-appointments', name: "Vet Appointments", basic: true, standard: true, premium: true },
+      { id: 'medical-docs', name: "Medical Documents", basic: "5 docs", standard: "100 docs", premium: "500 docs" },
+      { id: 'prescriptions', name: "Prescription History", basic: true, standard: true, premium: true },
+    ]
+  },
+  {
+    id: 'support-communication',
+    name: "Support & Communication",
+    features: [
+      { id: 'email-support', name: "Email Support", basic: "48h response", standard: "24h response", premium: "12h response" },
+      { id: 'priority-support', name: "Priority Support", basic: false, standard: true, premium: true },
+      { id: 'ai-chatbot', name: "AI Chatbot", basic: "10 msg/day", standard: "Unlimited", premium: "Unlimited" },
+    ]
+  },
+  {
+    id: 'data-reports',
+    name: "Data & Reports",
+    features: [
+      { id: 'health-reports', name: "Health Reports", basic: false, standard: true, premium: true },
+      { id: 'export-data', name: "Export Data", basic: false, standard: true, premium: true },
+      { id: 'data-history', name: "Data History", basic: "7 days", standard: "30 days", premium: "90 days" },
+      { id: 'analytics-dashboard', name: "Analytics Dashboard", basic: "Basic", standard: "Advanced", premium: "Full" },
+      { id: 'download-reports', name: "Download Reports", basic: false, standard: true, premium: true },
+    ]
+  },
+];
 
 export default function PricingPage() {
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
+  const { user, refreshUser } = useAuth();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [showFeatureTable, setShowFeatureTable] = useState(false);
+
+  const plans = [
+    {
+      id: 'basic',
+      name: 'Basic',
+      icon: Shield,
+      price: { month: 0, year: 0 },
+      description: 'Essential pet care features',
+      color: 'from-gray-500 to-gray-600',
+      buttonColor: 'bg-gray-500 hover:bg-gray-600',
+    },
+    {
+      id: 'standard',
+      name: 'Standard',
+      icon: Sparkles,
+      price: { month: 2499, year: 11999 },
+      description: 'Advanced features for pet parents',
+      color: 'from-blue-500 to-blue-600',
+      buttonColor: 'bg-blue-500 hover:bg-blue-600',
+      popular: true,
+    },
+    {
+      id: 'premium',
+      name: 'Premium',
+      icon: Crown,
+      price: { month: 4999, year: 23999 },
+      description: 'Complete pet care solution',
+      color: 'from-yellow-500 to-yellow-600',
+      buttonColor: 'bg-yellow-500 hover:bg-yellow-600',
+    },
+  ];
+
+  const fetchSubscription = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user?.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (data && !error) {
+      setCurrentSubscription(data as Subscription);
+    }
+    setLoading(false);
+  }, [user]);
+
+  const fetchInvoices = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('user_id', user?.id)
+      .order('invoice_date', { ascending: false });
+
+    if (data && !error) {
+      setInvoices(data as Invoice[]);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    fetchSubscription();
+    fetchInvoices();
+  }, [user, router, fetchSubscription, fetchInvoices]);
+
+  const handleSubscribe = async (planId: string, price: number) => {
+    if (currentSubscription?.plan_type === planId) {
+      setError(`You are already on the ${planId} plan`);
+      return;
+    }
+
+    setProcessing(planId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const startDate = new Date();
+      const endDate = new Date();
+      
+      if (billingInterval === 'month') {
+        endDate.setMonth(endDate.getMonth() + 1);
+      } else {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      }
+
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .upsert({
+          user_id: user?.id,
+          plan_type: planId,
+          status: 'active',
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          amount: price,
+          payment_method: 'card',
+        });
+
+      if (subError) throw subError;
+
+      const { error: invoiceError } = await supabase
+        .from('invoices')
+        .insert({
+          user_id: user?.id,
+          amount: price,
+          status: 'paid',
+          invoice_date: startDate.toISOString().split('T')[0],
+          plan_type: planId,
+          billing_interval: billingInterval,
+        });
+
+      if (invoiceError) throw invoiceError;
+
+      await supabase
+        .from('profiles')
+        .update({ plan: planId })
+        .eq('id', user?.id);
+
+      await refreshUser();
+      
+      setSuccess(`Successfully upgraded to ${planId} plan!`);
+      fetchSubscription();
+      fetchInvoices();
+
+      await fetch('/api/send-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user?.email,
+          plan: planId,
+          amount: price,
+          interval: billingInterval,
+          date: startDate.toISOString(),
+        }),
+      });
+
+    } catch (err) {
+      console.error('Subscription error:', err);
+      setError('Failed to process subscription. Please try again.');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!confirm('Are you sure you want to cancel your subscription?')) return;
+
+    setProcessing('cancel');
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({ status: 'cancelled' })
+        .eq('user_id', user?.id)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      await supabase
+        .from('profiles')
+        .update({ plan: 'basic' })
+        .eq('id', user?.id);
+
+      await refreshUser();
+      fetchSubscription();
+      setSuccess('Subscription cancelled successfully');
+    } catch {
+      setError('Failed to cancel subscription');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const getDaysRemaining = () => {
+    if (!currentSubscription?.end_date) return 0;
+    const end = new Date(currentSubscription.end_date);
+    const now = new Date();
+    const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 0;
+  };
+
+  const renderFeatureValue = (value: FeatureValue) => {
+    if (typeof value === 'boolean') {
+      return value ? <CheckCircle className="h-5 w-5 text-green-500 mx-auto" /> : <XCircle className="h-5 w-5 text-red-400 mx-auto" />;
+    }
+    return <span className="text-sm">{value}</span>;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="flex justify-center items-center h-96">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  const isCurrentPlan = (planId: string) => currentSubscription?.plan_type === planId;
+  const daysRemaining = getDaysRemaining();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Navbar />
       
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <h1 className="text-4xl font-bold mb-4">Simple, Transparent Pricing</h1>
-          <p className="text-xl text-muted-foreground">
-            Choose the plan that&apos;s right for you and your pets
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Choose the Perfect Plan for Your Pet
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Select the plan that best fits your needs. All plans include core features.
           </p>
-          
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-4 mt-8">
-            <Button
-              variant={billingCycle === "monthly" ? "default" : "outline"}
-              onClick={() => setBillingCycle("monthly")}
-              className="w-32"
-            >
-              Monthly
-            </Button>
-            <Button
-              variant={billingCycle === "yearly" ? "default" : "outline"}
-              onClick={() => setBillingCycle("yearly")}
-              className="w-32 gap-2"
-            >
-              Yearly
-              <Badge variant="secondary" className="bg-green-100 text-green-700">Save 20%</Badge>
-            </Button>
-          </div>
         </div>
 
-        {/* Pricing Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
-          {plans.map((plan) => (
-            <Card 
-              key={plan.name} 
-              className={`relative ${
-                plan.popular ? 'border-primary shadow-lg scale-105' : ''
+        {/* Current Subscription Status */}
+        {currentSubscription && currentSubscription.status === 'active' && (
+          <div className="mb-8">
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="pt-6">
+                <div className="flex flex-wrap justify-between items-center gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Crown className="h-5 w-5 text-green-600" />
+                      <h2 className="text-lg font-semibold">Current Plan: {currentSubscription.plan_type.toUpperCase()}</h2>
+                    </div>
+                    <p className="text-sm text-green-700 mt-1">
+                      Active since {new Date(currentSubscription.start_date).toLocaleDateString()}
+                    </p>
+                    {daysRemaining > 0 && (
+                      <p className="text-sm text-green-700">
+                        Next billing: {new Date(currentSubscription.end_date).toLocaleDateString()} ({daysRemaining} days remaining)
+                      </p>
+                    )}
+                  </div>
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleCancelSubscription}
+                    disabled={processing === 'cancel'}
+                  >
+                    {processing === 'cancel' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                    Cancel Subscription
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Billing Interval Toggle */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-white rounded-full p-1 shadow-md inline-flex">
+            <button
+              onClick={() => setBillingInterval('month')}
+              className={`px-6 py-2 rounded-full transition-all ${
+                billingInterval === 'month' 
+                  ? 'bg-primary text-white shadow-md' 
+                  : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              {plan.popular && (
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                  <Badge className="bg-primary text-primary-foreground px-4 py-1">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Most Popular
-                  </Badge>
-                </div>
-              )}
-              
-              <CardHeader>
-                <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                <div className="mt-2">
-                  <span className="text-4xl font-bold">{plan.price}</span>
-                  {plan.period && (
-                    <span className="text-muted-foreground">{plan.period}</span>
-                  )}
-                </div>
-                <CardDescription>{plan.description}</CardDescription>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                {plan.features.map((feature, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    {feature.included ? (
-                      <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
-                    ) : (
-                      <X className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-                    )}
-                    <span className={feature.included ? '' : 'text-muted-foreground'}>
-                      {feature.name}
-                    </span>
-                  </div>
-                ))}
-              </CardContent>
-              
-              <CardFooter>
-                <Button 
-                  variant={plan.buttonVariant} 
-                  className="w-full"
-                  size="lg"
-                  asChild
-                >
-                  <Link href={plan.name === "Basic" ? "/signup" : "/contact"}>
-                    {plan.buttonText}
-                  </Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingInterval('year')}
+              className={`px-6 py-2 rounded-full transition-all ${
+                billingInterval === 'year' 
+                  ? 'bg-primary text-white shadow-md' 
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Yearly <span className="text-xs ml-1 text-green-600">Save 15%</span>
+            </button>
+          </div>
         </div>
 
-        {/* FAQ Section */}
-        <div className="mt-16 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
-          <div className="grid gap-4">
+        {/* Error/Success Messages */}
+        {error && (
+          <Alert className="mb-6 bg-red-50 border-red-200">
+            <AlertDescription className="text-red-600">{error}</AlertDescription>
+          </Alert>
+        )}
+        {success && (
+          <Alert className="mb-6 bg-green-50 border-green-200">
+            <AlertDescription className="text-green-600">{success}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Pricing Cards */}
+        <div className="grid md:grid-cols-3 gap-6 mb-12">
+          {plans.map((plan) => {
+            const Icon = plan.icon;
+            const price = billingInterval === 'month' ? plan.price.month : plan.price.year;
+            const isActive = isCurrentPlan(plan.id);
+            const isDisabled = currentSubscription?.status === 'active' && !isActive;
+
+            return (
+              <Card key={plan.id} className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
+                isActive ? 'ring-2 ring-green-500 shadow-lg' : ''
+              }`}>
+                {plan.popular && (
+                  <div className="absolute top-0 right-0">
+                    <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                      MOST POPULAR
+                    </div>
+                  </div>
+                )}
+                
+                <CardHeader className={`bg-gradient-to-r ${plan.color} text-white rounded-t-lg`}>
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-6 w-6" />
+                    <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  </div>
+                  <CardDescription className="text-white/80">
+                    {plan.description}
+                  </CardDescription>
+                </CardHeader>
+                
+                <CardContent className="pt-6">
+                  <div className="mb-4">
+                    {price === 0 ? (
+                      <span className="text-3xl font-bold">Free</span>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-bold">LKR {price}</span>
+                        <span className="text-muted-foreground">/{billingInterval === 'month' ? 'month' : 'year'}</span>
+                      </>
+                    )}
+                  </div>
+
+                  <ul className="space-y-2 mb-6">
+                    <li className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span>Core pet health tracking</span>
+                    </li>
+                    {plan.id !== 'basic' && (
+                      <li className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        <span>AI-powered insights</span>
+                      </li>
+                    )}
+                    {plan.id === 'premium' && (
+                      <li className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        <span>Real-time sensor data</span>
+                      </li>
+                    )}
+                  </ul>
+
+                  {isActive ? (
+                    <Button className="w-full bg-green-600 hover:bg-green-700" disabled>
+                      Current Plan
+                    </Button>
+                  ) : isDisabled ? (
+                    <Button className="w-full bg-gray-400 cursor-not-allowed" disabled>
+                      Upgrade to change
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleSubscribe(plan.id, price)}
+                      disabled={processing === plan.id}
+                      className={`w-full ${plan.buttonColor} text-white`}
+                    >
+                      {processing === plan.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <CreditCard className="h-4 w-4 mr-2" />
+                      )}
+                      {plan.id === 'basic' ? 'Current Plan' : `Subscribe ${billingInterval === 'month' ? 'Monthly' : 'Yearly'}`}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Feature Comparison Button - More Visible */}
+        <div className="text-center mb-8">
+          <Button
+            onClick={() => setShowFeatureTable(!showFeatureTable)}
+            variant={showFeatureTable ? "default" : "outline"}
+            size="lg"
+            className="gap-2 shadow-md hover:shadow-lg transition-all"
+          >
+            {showFeatureTable ? (
+              <>Hide Complete Feature Comparison</>
+            ) : (
+              <>
+                <Eye className="h-5 w-5" />
+                View Complete Feature Comparison
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Feature Comparison Table */}
+        {showFeatureTable && (
+          <Card className="overflow-hidden shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Complete Feature Comparison
+              </CardTitle>
+              <CardDescription>Compare all features across Basic, Standard, and Premium plans</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-100 border-b">
+                    <th className="text-left p-4 min-w-[200px]">Feature</th>
+                    <th className="text-center p-4 min-w-[120px] bg-gray-50">Basic</th>
+                    <th className="text-center p-4 min-w-[120px] bg-blue-50">Standard</th>
+                    <th className="text-center p-4 min-w-[120px] bg-yellow-50">Premium</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {featureCategories.map((category) => (
+                    <React.Fragment key={category.id}>
+                      <tr className="bg-gray-50">
+                        <td colSpan={4} className="p-3 font-semibold text-lg">
+                          {category.name}
+                        </td>
+                      </tr>
+                      {category.features.map((feature) => (
+                        <tr key={feature.id} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-medium">{feature.name}</td>
+                          <td className="text-center p-3">{renderFeatureValue(feature.basic)}</td>
+                          <td className="text-center p-3 bg-blue-50/30">{renderFeatureValue(feature.standard)}</td>
+                          <td className="text-center p-3 bg-yellow-50/30">{renderFeatureValue(feature.premium)}</td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Invoices Section */}
+        {invoices.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Payment History
+            </h2>
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Can I change plans later?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Yes! You can upgrade or downgrade your plan at any time. Changes will be reflected in your next billing cycle.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Is there a free trial?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  The Basic plan is always free with core features. Standard and Premium plans come with a 14-day free trial.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Do you offer student or non-profit discounts?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Yes! We offer 50% off for students and non-profit organizations. Contact our support team for more information.
-                </p>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="text-left p-4">Date</th>
+                        <th className="text-left p-4">Plan</th>
+                        <th className="text-left p-4">Amount</th>
+                        <th className="text-left p-4">Status</th>
+                        <th className="text-left p-4"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((invoice) => (
+                        <tr key={invoice.id} className="border-b hover:bg-gray-50">
+                          <td className="p-4">{new Date(invoice.invoice_date).toLocaleDateString()}</td>
+                          <td className="p-4 capitalize">{invoice.plan_type}</td>
+                          <td className="p-4">LKR {invoice.amount}</td>
+                          <td className="p-4">
+                            <Badge className="bg-green-100 text-green-700">Paid</Badge>
+                          </td>
+                          <td className="p-4">
+                            <Button variant="ghost" size="sm" className="gap-1">
+                              <FileText className="h-3 w-3" />
+                              Receipt
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* FAQ Section */}
+        <div className="mt-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            Need help choosing? <Link href="/contact" className="text-primary hover:underline">Contact our support team</Link>
+          </p>
         </div>
       </div>
     </div>
-  )
+  );
 }

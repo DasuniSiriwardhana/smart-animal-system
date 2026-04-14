@@ -1,28 +1,68 @@
-// app/layout.tsx
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import { AuthProvider } from "@/components/auth/auth-provider"
-import "./globals.css"
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { AuthProvider } from "@/components/auth/auth-provider";
+import { Footer } from "@/components/layout/footer";
+import { SessionManager } from "@/components/auth/SessionManager";
+import { Chatbot } from "@/components/ui/Chatbot";
+import Script from "next/script";
 
-const inter = Inter({ subsets: ["latin"] })
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: "Smart Animal System - AI-Powered Pet Care Platform",
-  description: "Monitor, predict, and improve your pet's health with advanced AI and LSTM neural networks.",
-}
+  title: "Smart Animal System",
+  description: "Pet health monitoring and management system",
+};
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <head>
+        {/* Google Translate Widget - Hidden, controlled by navbar */}
+        <Script
+          id="google-translate-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              function googleTranslateElementInit() {
+                new google.translate.TranslateElement({
+                  pageLanguage: 'en',
+                  includedLanguages: 'en,si,ta,hi,es,fr,de,it,pt,ru,zh-CN,zh-TW,ja,ko,ar,bn,ur,th,vi,id,ms,fil,sw,tr,nl,pl,sv,no,fi,da,el,he,fa',
+                  layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                  autoDisplay: false,
+                  multilanguagePage: true
+                }, 'google_translate_element');
+              }
+            `,
+          }}
+        />
+        <Script
+          src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
+          strategy="afterInteractive"
+        />
+      </head>
+      <body>
         <AuthProvider>
-          {children}
+          <SessionManager/>
+          <main>{children}</main>
+          <Footer />
+          <Chatbot />
+          {/* Hidden Google Translate Element */}
+          <div id="google_translate_element" style={{ display: 'none' }} />
         </AuthProvider>
       </body>
     </html>
-  )
+  );
 }

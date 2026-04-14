@@ -1,156 +1,310 @@
-// app/pets/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Navbar } from "@/components/layout/navbar"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/Button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { supabase } from "@/lib/supabaseClient"
+import { useAuth } from "@/components/auth/auth-provider"
 import { 
   PawPrint, 
   Plus, 
-  Search,
-  Dog,
-  Cat,
-  Bird,
+  Dog, 
+  Cat, 
+  Bird, 
   Fish,
-  MoreVertical,
-  ChevronRight
+  Loader2,
+  Heart,
+  Activity,
+  Thermometer,
+  Wifi,
+  WifiOff,
+  Crown
 } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { canAddMorePets } from "@/lib/plan-config"
 
-// Mock data
-const mockPets = [
-  { id: "1", name: "Max", type: "dog", species: "Golden Retriever", age: 3, weight: 28.5, image: Dog },
-  { id: "2", name: "Luna", type: "cat", species: "Siamese", age: 2, weight: 4.2, image: Cat },
-  { id: "3", name: "Rio", type: "bird", species: "Parrot", age: 5, weight: 0.3, image: Bird },
-  { id: "4", name: "Charlie", type: "dog", species: "Beagle", age: 4, weight: 12.5, image: Dog },
-  { id: "5", name: "Bella", type: "cat", species: "Persian", age: 3, weight: 3.8, image: Cat },
-  { id: "6", name: "Nemo", type: "fish", species: "Clownfish", age: 1, weight: 0.1, image: Fish },
-]
+type Pet = {
+  id: string
+  name: string
+  species: string
+  breed: string
+  age: number
+  weight: number
+  photo_url: string | null
+  created_at: string
+}
 
-export default function PetsPage() {
-  const [pets] = useState(mockPets)
-  const [searchQuery, setSearchQuery] = useState("")
+type SensorData = {
+  heart_rate: number
+  temperature: number
+  activity_level: string
+  sensor_time: string
+}
 
-  const filteredPets = pets.filter(pet => 
-    pet.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    pet.species.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+// Map species to icons
+const getPetIcon = (species: string) => {
+  const lowerSpecies = species.toLowerCase()
+  if (lowerSpecies.includes("dog")) return Dog
+  if (lowerSpecies.includes("cat")) return Cat
+  if (lowerSpecies.includes("bird")) return Bird
+  if (lowerSpecies.includes("fish")) return Fish
+  return PawPrint
+}
+
+// Pet Card Component
+function PetCard({ pet, isPremium }: { pet: Pet; isPremium: boolean }) {
+  const [sensorData, setSensorData] = useState<SensorData | null>(null)
+  const [isLive, setIsLive] = useState(false)
+  const [isConnected, setIsConnected] = useState(false)
+
+  useEffect(() => {
+    const fetchSensorData = async () => {
+      const { data } = await supabase
+        .from("sensor_data")
+        .select("heart_rate, temperature, activity_level, sensor_time")
+        .eq("pet_id", pet.id)
+        .order("sensor_time", { ascending: false })
+        .limit(1)
+      
+      if (data && data.length > 0) {
+        setSensorData(data[0])
+        setIsConnected(true)
+      }
+    }
+    fetchSensorData()
+
+    const channel = supabase
+      .channel(`sensor_updates_${pet.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'sensor_data',
+          filter: `pet_id=eq.${pet.id}`
+        },
+        (payload) => {
+          setSensorData({
+            heart_rate: payload.new.heart_rate,
+            temperature: payload.new.temperature,
+            activity_level: payload.new.activity_level,
+            sensor_time: payload.new.sensor_time
+          })
+          setIsLive(true)
+          setIsConnected(true)
+          setTimeout(() => setIsLive(false), 2000)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [pet.id])
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">My Pets</h1>
-            <p className="text-muted-foreground">Manage and track all your pets</p>
+    <Card className="overflow-hidden border border-gray-100 transition-all hover:shadow-lg">
+      <CardContent className="p-4">
+        <Link href={`/pets/${pet.id}`}>
+          <div className="flex items-start gap-3 cursor-pointer">
+            <div className="relative">
+              <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center overflow-hidden">
+               {pet.photo_url ? (
+  <img src={pet.photo_url} alt={pet.name} className="h-full w-full object-cover" />
+) : (
+  (() => {
+    const Icon = getPetIcon(pet.species)
+    return <Icon className="h-7 w-7 text-primary" />
+  })()
+)}               
+              </div>
+              {isConnected && (
+                <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className="truncate text-base font-semibold hover:text-primary transition-colors">
+                {pet.name}
+              </h3>
+              <p className="truncate text-xs text-gray-500">{pet.breed || pet.species}</p>
+              <p className="text-xs text-gray-500">{pet.age} yrs • {pet.weight} kg</p>
+            </div>
           </div>
-          <Button className="gap-2" asChild>
+        </Link>
+
+        {/* Sensor Data - Only for Premium */}
+        {isPremium && sensorData && (
+          <div className="mt-3 border-t border-gray-100 pt-3">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="flex items-center gap-1 text-[10px] font-medium text-gray-500">
+                {isConnected ? <Wifi className="h-2.5 w-2.5 text-green-500" /> : <WifiOff className="h-2.5 w-2.5 text-red-500" />}
+                Live Data
+              </p>
+              {isLive && <Badge className="bg-green-500 px-1 py-0 text-[8px] text-white">LIVE</Badge>}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <div className="rounded-lg bg-blue-50 p-1.5 text-center">
+                <Heart className="mx-auto h-3 w-3 text-red-500" />
+                <p className="mt-0.5 text-xs font-bold">{sensorData.heart_rate}</p>
+                <p className="text-[8px] text-gray-500">BPM</p>
+              </div>
+              <div className="rounded-lg bg-orange-50 p-1.5 text-center">
+                <Thermometer className="mx-auto h-3 w-3 text-orange-500" />
+                <p className="mt-0.5 text-xs font-bold">{sensorData.temperature}°</p>
+                <p className="text-[8px] text-gray-500">Temp</p>
+              </div>
+              <div className="rounded-lg bg-green-50 p-1.5 text-center">
+                <Activity className="mx-auto h-3 w-3 text-green-500" />
+                <p className="mt-0.5 text-xs font-bold capitalize">{sensorData.activity_level?.slice(0, 3)}</p>
+                <p className="text-[8px] text-gray-500">Activity</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isPremium && !sensorData && (
+          <div className="mt-3 border-t border-gray-100 pt-3 text-center">
+            <p className="text-[10px] text-gray-500">Waiting for sensor data...</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+export default function PetsPage() {
+  const { user } = useAuth()
+  const router = useRouter()
+  
+  const [pets, setPets] = useState<Pet[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isPremium, setIsPremium] = useState(false)
+
+  const userPlan = user?.plan || "basic"
+  const canAddMore = canAddMorePets(userPlan, pets.length)
+
+  useEffect(() => {
+    if (!user) {
+      router.push("/login")
+      return
+    }
+    checkPremiumStatus()
+    fetchPets()
+  }, [user, router])
+
+  const checkPremiumStatus = async () => {
+    const { data } = await supabase
+      .from("subscriptions")
+      .select("plan_type")
+      .eq("user_id", user?.id)
+      .eq("status", "active")
+      .maybeSingle()
+    
+    setIsPremium(data?.plan_type === "premium" || data?.plan_type === "standard")
+  }
+
+  const fetchPets = async () => {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+      setPets(data || [])
+    } catch (error) {
+      console.error("Error fetching pets:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              My Pets
+            </h1>
+            <p className="text-sm text-gray-500">Manage and monitor your pets&apos; health</p>
+          </div>
+          {canAddMore ? (
             <Link href="/pets/new">
-              <Plus className="h-4 w-4" />
-              Add New Pet
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add New Pet
+              </Button>
             </Link>
-          </Button>
+          ) : (
+            <Button className="gap-2" disabled>
+              <Plus className="h-4 w-4" />
+              Pet Limit Reached
+            </Button>
+          )}
         </div>
 
-        {/* Search Bar */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search pets by name or species..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+        {/* Premium Upgrade Prompt for Non-Premium Users */}
+        {!isPremium && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-200">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                  <Crown className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-amber-800">Upgrade to Premium</p>
+                  <p className="text-sm text-amber-700">Get real-time sensor data and AI health analysis</p>
+                </div>
+              </div>
+              <Link href="/pricing">
+                <Button size="sm" className="bg-amber-600 hover:bg-amber-700">
+                  View Plans
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Pets Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredPets.map((pet) => {
-            const Icon = pet.image
-            return (
-              <Card key={pet.id} className="hover:shadow-lg transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Icon className="h-8 w-8 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">{pet.name}</h3>
-                        <p className="text-sm text-muted-foreground">{pet.species}</p>
-                        <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
-                          <span>{pet.age} years</span>
-                          <span>•</span>
-                          <span>{pet.weight} kg</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/pets/${pet.id}`}>View Details</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/pets/${pet.id}/edit`}>Edit</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/pets/${pet.id}/logs`}>View Logs</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <div className="mt-4 flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1" asChild>
-                      <Link href={`/pets/${pet.id}/logs`}>Add Log</Link>
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1" asChild>
-                      <Link href={`/pets/${pet.id}`}>View</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-
-        {/* Empty State */}
-        {filteredPets.length === 0 && (
+        {pets.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="py-12 text-center">
               <PawPrint className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="font-semibold text-lg mb-2">No pets found</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchQuery ? "Try a different search term" : "Add your first pet to get started"}
-              </p>
-              {!searchQuery && (
-                <Button asChild>
-                  <Link href="/pets/new">Add Your First Pet</Link>
-                </Button>
+              <h3 className="font-semibold text-lg mb-2">No pets yet</h3>
+              <p className="text-muted-foreground mb-4">Add your first pet to start tracking their health</p>
+              {canAddMore && (
+                <Link href="/pets/new">
+                  <Button>Add Your First Pet</Button>
+                </Link>
               )}
             </CardContent>
           </Card>
+        ) : (
+          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {pets.map((pet) => (
+              <PetCard key={pet.id} pet={pet} isPremium={isPremium} />
+            ))}
+          </div>
         )}
       </div>
     </div>

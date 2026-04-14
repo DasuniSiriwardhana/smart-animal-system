@@ -1,0 +1,86 @@
+// proxy.ts
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function proxy(req: NextRequest) {  
+  const response = NextResponse.next({
+    request: { headers: req.headers },
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const { data: { session } } = await supabase.auth.getSession()
+
+  const pathname = req.nextUrl.pathname
+  const isAuthPage = pathname === '/login' || pathname === '/signup'
+  const isHomePage = pathname === '/'
+  const isAdminPage = pathname.startsWith('/admin')
+  const isProtectedPage =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/pets') ||
+    pathname.startsWith('/profile') ||
+    pathname.startsWith('/analytics') ||
+    pathname.startsWith('/appointments') ||
+    pathname.startsWith('/insights') ||
+    pathname.startsWith('/pricing') ||
+    pathname.startsWith('/settings') ||
+    isAdminPage
+
+  // Home page — allow everyone through
+  if (isHomePage) return response
+
+  // Not logged in + hitting a protected page → login
+  if (!session && isProtectedPage) {
+    return NextResponse.redirect(new URL('/login', req.url))
+  }
+
+  // Logged in + hitting login/signup → redirect based on role
+  if (session && isAuthPage) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+
+    if (profile?.role === 'admin') {
+      return NextResponse.redirect(new URL('/admin', req.url))
+    }
+    return NextResponse.redirect(new URL('/dashboard', req.url))
+  }
+
+  // Logged in non-admin hitting an admin page → dashboard
+  if (session && isAdminPage) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+
+    if (profile?.role !== 'admin') {
+      return NextResponse.redirect(new URL('/dashboard', req.url))
+    }
+  }
+
+  return response
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|images|api).*)',
+  ],
+}

@@ -1,243 +1,283 @@
-// app/profile/page.tsx
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { useAuth } from "@/hooks/use-auth"
-import { Navbar } from "@/components/layout/navbar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Calendar, 
-  Shield, 
-  Sparkles,
-  ArrowLeft,
-  Save
-} from "lucide-react"
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { Navbar } from '@/components/layout/navbar';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/components/auth/auth-provider';
+import { Loader2, Camera, User, Mail, Calendar, Shield } from 'lucide-react';
+
+type Profile = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  plan: string;
+  avatar_url: string | null;
+  created_at: string;
+};
 
 export default function ProfilePage() {
-  const { user } = useAuth()
-  const router = useRouter()
-  const [isEditing, setIsEditing] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const { user } = useAuth();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+  });
 
-  if (!user) {
-    router.push("/login")
-    return null
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    fetchProfile();
+  }, [user, router]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
+      
+      if (error) throw error;
+      
+      setProfile(data);
+      setFormData({
+        name: data.name || '',
+        email: data.email || '',
+      });
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: formData.name,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user?.id);
+      
+      if (error) throw error;
+      
+      alert('Profile updated successfully!');
+      fetchProfile();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    alert('Please upload an image file');
+    return;
   }
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
+  
+  // Validate file size (max 2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    alert('File size must be less than 2MB');
+    return;
   }
+  
+  setUploading(true);
+  
+  try {
+    // Create a unique file name with user ID as folder
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
+    
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, file);
+    
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      throw uploadError;
+    }
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(fileName);
+    
+    // Update profile with avatar URL
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('id', user?.id);
+    
+    if (updateError) throw updateError;
+    
+    alert('Avatar updated successfully!');
+    fetchProfile();
+    
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
+    alert('Failed to upload avatar. Please try again.');
+  } finally {
+    setUploading(false);
+  }
+};
 
-  const handleSave = async () => {
-    setLoading(true)
-    // Simulate save
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setLoading(false)
-    setIsEditing(false)
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <div className="mb-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard" className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            My Profile
+          </h1>
+          <p className="text-muted-foreground">Manage your account settings</p>
         </div>
-
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Profile Header */}
+        
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Avatar Section */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row md:items-center gap-6">
-                <Avatar className="h-24 w-24 border-4 border-primary/10">
-                  <AvatarImage src={user.avatar} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-2xl">
-                    {getInitials(user.name)}
-                  </AvatarFallback>
-                </Avatar>
-                
-                <div className="flex-1">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                      <h1 className="text-3xl font-bold">{user.name}</h1>
-                      <p className="text-muted-foreground">{user.email}</p>
+            <CardContent className="pt-6 text-center">
+              <div className="relative inline-block">
+                <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 mx-auto">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <User className="w-12 h-12 text-primary/50" />
                     </div>
-                    <div className="flex gap-2">
-                      <Badge variant="outline" className="capitalize">
-                        {user.role}
-                      </Badge>
-                      <Badge className="capitalize bg-primary/10 text-primary">
-                        {user.plan} Plan
-                      </Badge>
-                    </div>
-                  </div>
+                  )}
                 </div>
+                <label className="absolute bottom-0 right-0 p-1 bg-primary rounded-full cursor-pointer hover:bg-primary/80 transition-colors">
+                  <Camera className="w-4 h-4 text-white" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                    disabled={uploading}
+                  />
+                </label>
               </div>
+              {uploading && (
+                <p className="text-xs text-muted-foreground mt-2">Uploading...</p>
+              )}
+              <p className="text-sm text-muted-foreground mt-4">
+                Click the camera icon to upload a profile picture
+              </p>
             </CardContent>
           </Card>
-
-          {/* Profile Info */}
-          <Card>
+          
+          {/* Profile Form */}
+          <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
-              <CardDescription>Manage your personal information</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+            <CardContent>
+              <form onSubmit={handleUpdateProfile} className="space-y-4">
+                <div>
                   <Label htmlFor="name">Full Name</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="name" 
-                      defaultValue={user.name}
-                      className="pl-10"
-                      disabled={!isEditing}
-                    />
-                  </div>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    className="mt-1.5"
+                  />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="email" 
-                      type="email"
-                      defaultValue={user.email}
-                      className="pl-10"
-                      disabled={!isEditing}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="phone" 
-                      placeholder="+94 77 123 4567"
-                      className="pl-10"
-                      disabled={!isEditing}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="joined">Member Since</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="joined" 
-                      value="March 2026"
-                      className="pl-10"
-                      disabled
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {isEditing ? (
-                <div className="flex gap-4 pt-4">
-                  <Button onClick={handleSave} disabled={loading} className="gap-2">
-                    <Save className="h-4 w-4" />
-                    {loading ? "Saving..." : "Save Changes"}
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsEditing(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <Button onClick={() => setIsEditing(true)}>
-                  Edit Profile
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Account Statistics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Statistics</CardTitle>
-              <CardDescription>Your activity overview</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-muted rounded-lg text-center">
-                  <p className="text-2xl font-bold text-primary">3</p>
-                  <p className="text-sm text-muted-foreground">Total Pets</p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg text-center">
-                  <p className="text-2xl font-bold text-primary">127</p>
-                  <p className="text-sm text-muted-foreground">Daily Logs</p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg text-center">
-                  <p className="text-2xl font-bold text-primary">15</p>
-                  <p className="text-sm text-muted-foreground">Documents</p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg text-center">
-                  <p className="text-2xl font-bold text-primary">89%</p>
-                  <p className="text-sm text-muted-foreground">Avg Health</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Plan Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                Current Plan: {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}
-              </CardTitle>
-              <CardDescription>
-                {user.plan === 'premium' && 'Access to all premium features'}
-                {user.plan === 'standard' && 'Enhanced features for dedicated pet parents'}
-                {user.plan === 'basic' && 'Free access to core features'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-between items-center">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    {user.plan === 'basic' && 'Upgrade to Standard or Premium for more features'}
-                    {user.plan === 'standard' && 'Upgrade to Premium for unlimited access'}
-                    {user.plan === 'premium' && 'You have access to all features'}
+                
+                <div>
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    disabled
+                    className="mt-1.5 bg-muted"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Email cannot be changed
                   </p>
                 </div>
-                {user.plan !== 'premium' && (
-                  <Button asChild>
-                    <Link href="/pricing">Upgrade Plan</Link>
-                  </Button>
-                )}
-              </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Account Role</Label>
+                    <div className="flex items-center gap-2 mt-1.5 p-2 bg-muted rounded-lg">
+                      <Shield className="h-4 w-4 text-accent" />
+                      <span className="text-sm capitalize">{profile?.role || 'User'}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Subscription Plan</Label>
+                    <div className="flex items-center gap-2 mt-1.5 p-2 bg-muted rounded-lg">
+                      <span className="text-sm capitalize font-medium">
+                        {profile?.plan || 'Basic'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label>Member Since</Label>
+                  <div className="flex items-center gap-2 mt-1.5 p-2 bg-muted rounded-lg">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    <span className="text-sm">
+                      {profile?.created_at 
+                        ? new Date(profile.created_at).toLocaleDateString() 
+                        : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                
+                <Button type="submit" disabled={saving} className="w-full">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Save Changes
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </div>
       </div>
     </div>
-  )
+  );
 }

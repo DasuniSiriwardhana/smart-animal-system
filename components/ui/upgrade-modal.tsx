@@ -2,7 +2,7 @@
 "use client"
 
 import { motion, AnimatePresence } from "framer-motion"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/Button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sparkles, X, Check, Crown } from "lucide-react"
 import Link from "next/link"
@@ -51,13 +51,13 @@ export function UpgradeModal({ isOpen, onClose, requiredPlan, feature }: Upgrade
               {/* Background decoration */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent" />
               
-              {/* Close button */}
-              <button
+              {/* Close Button */}
+              <Button
                 onClick={onClose}
                 className="absolute right-4 top-4 p-2 hover:bg-accent rounded-full z-10"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
 
               <CardContent className="p-8 relative">
                 <div className="text-center mb-8">
@@ -108,7 +108,7 @@ export function UpgradeModal({ isOpen, onClose, requiredPlan, feature }: Upgrade
                           </ul>
                           <Button 
                             className="w-full bg-gradient-to-r from-primary to-accent text-white"
-                            asChild
+                            Button
                           >
                             <Link href="/signup" onClick={onClose}>
                               Choose {plan.name}
@@ -136,3 +136,5 @@ export function UpgradeModal({ isOpen, onClose, requiredPlan, feature }: Upgrade
     </AnimatePresence>
   )
 }
+
+
