@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
               <p><strong>⏰ Time:</strong> ${time || 'Now'}</p>
             </div>
             <p style="text-align: center;">
-              <a href="${confirmUrl}" style="background: linear-gradient(135deg, #2f4454, #da7b93); color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">✅ Confirm Feeding</a>
+              <a href="${confirmUrl}" style="background: linear-gradient(135deg, #2f4454, #da7b93); color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;"> Confirm Feeding</a>
             </p>
             <p style="font-size: 12px; color: #666; text-align: center;">
               If the button doesn't work, copy this link: ${confirmUrl}

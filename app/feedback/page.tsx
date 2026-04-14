@@ -106,7 +106,7 @@ export default function FeedbackPage() {
             </Button>
 
             {submitted && (
-              <p className="text-green-600 text-center">✅ Thank you for your feedback! We appreciate your input.</p>
+              <p className="text-green-600 text-center"> Thank you for your feedback! We appreciate your input.</p>
             )}
           </form>
         </motion.div>

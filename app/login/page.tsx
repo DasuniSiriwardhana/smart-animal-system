@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/input';
@@ -27,29 +28,27 @@ export default function SignInPage() {
 
       if (error) throw error;
 
+      if (data.user) {
+        console.log('User logged in:', data.user.id);
+        
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
 
-if (data.user) {
-  console.log('✅ User logged in:', data.user.id);
-  
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', data.user.id)
-    .single();
+        console.log('Profile data:', profile);
+        console.log('Role:', profile?.role);
+        console.log('Error if any:', profileError);
 
-  console.log(' Profile data:', profile);
-  console.log('👤 Role:', profile?.role);
-  console.log('❌ Error if any:', profileError);
-
-  if (profile?.role === 'admin') {
-    console.log('🚀 Redirecting to /admin');
-    window.location.href = '/admin';
-  } else {
-    console.log('🏠 Redirecting to /dashboard');
-    window.location.href = '/dashboard';
-  }
-}
-
+        if (profile?.role === 'admin') {
+          console.log('Redirecting to /admin');
+          window.location.href = '/admin';
+        } else {
+          console.log('Redirecting to /dashboard');
+          window.location.href = '/dashboard';
+        }
+      }
     } catch (err) {
       const error = err as { message: string };
       setError(error.message || "Invalid email or password");
@@ -81,7 +80,12 @@ if (data.user) {
         </div>
         
         <div>
-          <Label htmlFor="password">Password</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+              Forgot password?
+            </Link>
+          </div>
           <Input
             id="password"
             type="password"
@@ -97,6 +101,13 @@ if (data.user) {
           {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
           Sign In
         </Button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{' '}
+          <Link href="/signup" className="text-primary hover:underline">
+            Sign up
+          </Link>
+        </p>
       </form>
     </AuthLayout>
   );

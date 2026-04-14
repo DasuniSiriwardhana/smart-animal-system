@@ -37,7 +37,7 @@ ${recommendations || 'Please check the app for detailed health analysis'}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✅ ACTION STEPS:
+ ACTION STEPS:
 ${healthScore < 30 ? '• IMMEDIATE: Take pet to emergency vet' : 
   healthScore < 50 ? '• Schedule vet visit within 24 hours' : 
   '• Monitor pet closely for next 48 hours'}

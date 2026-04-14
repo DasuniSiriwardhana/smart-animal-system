@@ -119,7 +119,7 @@ function PetAvatarIcon({ species, className }: { species: string; className?: st
   return <PawPrint className={className} />;
 }
 
-// ✅ ENHANCED: Pet Card Component with Live Sensor Data
+//  ENHANCED: Pet Card Component with Live Sensor Data
 function PetCard({ pet, onSelect }: { pet: Pet; onSelect: (pet: Pet) => void }) {
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [isLive, setIsLive] = useState(false);
@@ -191,7 +191,7 @@ setLastUpdate(new Date(payload.new.sensor_time).toLocaleTimeString('en-US', {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`✅ Realtime connected for ${pet.name}`);
+          console.log(` Realtime connected for ${pet.name}`);
         }
       });
 

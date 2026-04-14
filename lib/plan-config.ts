@@ -73,7 +73,7 @@ export const FEATURES: PlanFeature[] = [
     standard: false,
     premium: true,
   },
-  // ✅ ADDED: Document storage feature
+  //  ADDED: Document storage feature
   {
     name: "document_storage",
     description: "Document storage for vet records",
@@ -81,7 +81,7 @@ export const FEATURES: PlanFeature[] = [
     standard: true,
     premium: true,
   },
-  // ✅ ADDED: Daily logs feature
+  //  ADDED: Daily logs feature
   {
     name: "daily_logs",
     description: "Daily logs with AI analysis",
@@ -89,7 +89,7 @@ export const FEATURES: PlanFeature[] = [
     standard: true,
     premium: true,
   },
-  // ✅ ADDED: Advanced analytics
+  //  ADDED: Advanced analytics
   {
     name: "advanced_analytics",
     description: "Advanced analytics & charts",
@@ -98,7 +98,7 @@ export const FEATURES: PlanFeature[] = [
     premium: true,
   },
   
-  // ✅ ADDED: Export reports
+  //  ADDED: Export reports
   {
     name: "export_reports",
     description: "Export reports",

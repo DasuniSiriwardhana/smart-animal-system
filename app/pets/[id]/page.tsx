@@ -478,7 +478,7 @@ ${report.recommendations.map((rec: string, i: number) => `│   ${i + 1}. ${rec}
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ ✅ NEXT STEPS                                                                   │
+│  NEXT STEPS                                                                   │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 ${report.next_steps.map((step: string, i: number) => `│   ${i + 1}. ${step}`).join('\n')}
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -886,7 +886,7 @@ ${report.next_steps.map((step: string, i: number) => `│   ${i + 1}. ${step}`).
           if (line.includes('HEALTH REPORT') || line.includes('═══')) {
             return <div key={i} className="text-lg font-bold text-primary text-center">{line}</div>;
           }
-          if (line.includes('📋') || line.includes('📊') || line.includes('📡') || line.includes('⚠️') || line.includes('💡') || line.includes('✅')) {
+          if (line.includes('📋') || line.includes('📊') || line.includes('📡') || line.includes('⚠️') || line.includes('💡') || line.includes('')) {
             return <div key={i} className="font-semibold text-primary mt-4 mb-2">{line}</div>;
           }
           if (line.includes('Health Score:')) {

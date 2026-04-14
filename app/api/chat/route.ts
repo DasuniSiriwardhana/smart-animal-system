@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     // Clean up the response
     reply = reply.replace(/^Assistant:\s*/i, '').trim();
 
-    console.log("✅ Reply sent, length:", reply.length);
+    console.log(" Reply sent, length:", reply.length);
     return NextResponse.json({ reply });
 
   } catch (error) {
@@ -87,7 +87,7 @@ function getFallbackResponse(message: string): string {
   }
   
   if (lowerMsg.includes("food") && lowerMsg.includes("safe")) {
-    return "🐾 **Safe foods for pets:**\n\n✅ Cooked lean meats (chicken, turkey, beef)\n✅ Carrots, green beans, pumpkin\n✅ Apples (no seeds), bananas\n✅ Plain rice\n\n⚠️ Introduce new foods gradually!";
+    return "🐾 **Safe foods for pets:**\n\n Cooked lean meats (chicken, turkey, beef)\n Carrots, green beans, pumpkin\n Apples (no seeds), bananas\n Plain rice\n\n⚠️ Introduce new foods gradually!";
   }
   
   if (lowerMsg.includes("hello") || lowerMsg.includes("hi")) {

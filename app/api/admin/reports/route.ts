@@ -230,7 +230,7 @@ export async function GET(request: Request) {
       petSpeciesDistribution,
     };
 
-    console.log('✅ Final Report Data Summary:', {
+    console.log(' Final Report Data Summary:', {
       totalPets: reportData.summary.totalPets,
       speciesDistribution: reportData.petSpeciesDistribution,
       speciesCount: reportData.petSpeciesDistribution.length

@@ -341,7 +341,7 @@ export function SensorDashboard({ petId, petName, latitude, longitude }: {
 
               {/* Actionable Steps */}
               <div className="mt-6 p-4 bg-green-50 rounded-lg">
-                <h3 className="font-semibold text-green-800 mb-2">✅ Actionable Steps</h3>
+                <h3 className="font-semibold text-green-800 mb-2"> Actionable Steps</h3>
                 <ul className="list-disc pl-5">
                   <li className="text-sm text-green-700">Monitor your pet&apos;s behavior for next 24 hours</li>
                   <li className="text-sm text-green-700">Ensure fresh water is always available</li>

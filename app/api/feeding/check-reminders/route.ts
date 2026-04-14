@@ -36,8 +36,11 @@ export async function GET() {
     }
 
     if (!schedules || schedules.length === 0) {
+      console.log("No pending schedules found");
       return NextResponse.json({ remindersSent: 0 });
     }
+
+    console.log(`Found ${schedules.length} pending schedules`);
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -50,7 +53,6 @@ export async function GET() {
     let remindersSent = 0;
 
     for (const schedule of schedules) {
-      // Fix: pets is an array, access first element
       const petData = schedule.pets as unknown as { id: string; name: string; user_id: string };
       
       if (!petData || !petData.user_id) {
@@ -87,6 +89,9 @@ export async function GET() {
               <p style="text-align: center;">
                 <a href="${confirmUrl}" style="background: linear-gradient(135deg, #2f4454, #da7b93); color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Confirm Feeding</a>
               </p>
+              <p style="font-size: 12px; color: #666; text-align: center; margin-top: 15px;">
+                If the button doesn't work, copy this link: ${confirmUrl}
+              </p>
             </div>
           </div>
         `;
@@ -112,6 +117,8 @@ export async function GET() {
         } catch (emailError) {
           console.error(`Failed to send email to ${userEmail}:`, emailError);
         }
+      } else {
+        console.log(`No email found for user ${petData.user_id}`);
       }
     }
 

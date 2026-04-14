@@ -181,7 +181,7 @@ export function generateHealthReportPDF(report: HealthReportData, petName: strin
   
   // NEXT STEPS
   checkNewPage();
-  addSection('✅ NEXT STEPS');
+  addSection(' NEXT STEPS');
   if (report.next_steps && report.next_steps.length > 0) {
     report.next_steps.forEach((step: string) => {
       addBullet(step);

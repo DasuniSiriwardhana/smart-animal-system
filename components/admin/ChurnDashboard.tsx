@@ -30,7 +30,7 @@ const RISK_COLORS: Record<string, string> = {
   critical: '#7f1d1d'
 };
 
-// ✅ Type-safe formatter (NO any)
+//  Type-safe formatter (NO any)
 const formatPercentage = (value: ValueType): string | string[] => {
   if (Array.isArray(value)) {
     return value.map(v => `${Number(v).toFixed(1)}%`);
@@ -265,7 +265,7 @@ export function ChurnDashboard() {
   );
 }
 
-// ✅ Small reusable UI components
+//  Small reusable UI components
 function StatCard({ label, value, className = '' }: { label: string; value: string | number; className?: string }) {
   return (
     <div className="bg-white rounded-lg p-4 shadow border">
