@@ -3,10 +3,10 @@ import { supabase } from '@/lib/supabaseClient';
 
 export async function GET(
   request: Request,
-  { params }: { params: { petId: string } }
+  { params }: { params: Promise<{ petId: string }> }
 ) {
   try {
-    const petId = params.petId;
+    const { petId } = await params;
     const currentTime = new Date().toTimeString().slice(0, 5);
     
     console.log("Fetching pending meals for pet:", petId, "at", currentTime);

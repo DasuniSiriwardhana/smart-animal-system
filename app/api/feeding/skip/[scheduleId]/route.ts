@@ -3,10 +3,10 @@ import { supabase } from '@/lib/supabaseClient';
 
 export async function POST(
   request: Request,
-  { params }: { params: { scheduleId: string } }
+  { params }: { params: Promise<{ scheduleId: string }> }
 ) {
   try {
-    const scheduleId = params.scheduleId;
+    const { scheduleId } = await params;
     
     console.log("Skipping feeding:", scheduleId);
     
