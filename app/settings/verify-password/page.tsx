@@ -11,7 +11,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
-// Content component that uses useSearchParams
 function VerifyPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,6 +23,7 @@ function VerifyPasswordContent() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [success, setSuccess] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -58,6 +58,7 @@ function VerifyPasswordContent() {
           return;
         }
 
+        setUserId(data.user_id);
         setValid(true);
         setVerifying(false);
       } catch (err) {
@@ -84,12 +85,23 @@ function VerifyPasswordContent() {
     setError(null);
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
+      // Update password using Supabase Admin API
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: userId,
+          newPassword: newPassword 
+        }),
       });
 
-      if (updateError) throw updateError;
+      const data = await response.json();
 
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update password');
+      }
+
+      // Mark token as used
       await supabase
         .from('password_reset_requests')
         .update({ used: true })
@@ -102,7 +114,7 @@ function VerifyPasswordContent() {
       }, 3000);
       
     } catch (err) {
-      setError("Failed to update password. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to update password. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -197,7 +209,6 @@ function VerifyPasswordContent() {
   );
 }
 
-// Main export with Suspense wrapper
 export default function VerifyPasswordPage() {
   return (
     <Suspense fallback={
