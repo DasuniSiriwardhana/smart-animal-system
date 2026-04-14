@@ -108,7 +108,6 @@ export function UpgradeModal({ isOpen, onClose, requiredPlan, feature }: Upgrade
                           </ul>
                           <Button 
                             className="w-full bg-gradient-to-r from-primary to-accent text-white"
-                            Button
                           >
                             <Link href="/signup" onClick={onClose}>
                               Choose {plan.name}

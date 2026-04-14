@@ -13,7 +13,7 @@ import {
 } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
-import { Button, ButtonVariants } from "@/components/ui/Button"
+import { Button, buttonVariants } from "@/components/ui/Button"
 
 function Calendar({
   className,
@@ -34,8 +34,8 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn(
         "group/calendar bg-background p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
-        String.raw`rtl:**:[.rdp-Button\_next>svg]:rotate-180`,
-        String.raw`rtl:**:[.rdp-Button\_previous>svg]:rotate-180`,
+        String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
+        String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className
       )}
       captionLayout={captionLayout}
@@ -55,15 +55,15 @@ function Calendar({
           "absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
           defaultClassNames.nav
         ),
-        Button_previous: cn(
-          ButtonVariants({ variant: ButtonVariant }),
+        button_previous: cn(
+          buttonVariants({ variant: ButtonVariant }),
           "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
-          defaultClassNames.Button_previous
+          defaultClassNames.button_previous
         ),
-        Button_next: cn(
-          ButtonVariants({ variant: ButtonVariant }),
+        button_next: cn(
+          buttonVariants({ variant: ButtonVariant }),
           "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
-          defaultClassNames.Button_next
+          defaultClassNames.button_next
         ),
         month_caption: cn(
           "flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)",
@@ -104,10 +104,10 @@ function Calendar({
           defaultClassNames.week_number
         ),
         day: cn(
-          "group/day relative aspect-square h-full w-full p-0 text-center select-none [&:last-child[data-selected=true]_Button]:rounded-r-md",
+          "group/day relative aspect-square h-full w-full p-0 text-center select-none [&:last-child[data-selected=true]_button]:rounded-r-md",
           props.showWeekNumber
-            ? "[&:nth-child(2)[data-selected=true]_Button]:rounded-l-md"
-            : "[&:first-child[data-selected=true]_Button]:rounded-l-md",
+            ? "[&:nth-child(2)[data-selected=true]_button]:rounded-l-md"
+            : "[&:first-child[data-selected=true]_button]:rounded-l-md",
           defaultClassNames.day
         ),
         range_start: cn(
@@ -218,7 +218,3 @@ function CalendarDayButton({
 }
 
 export { Calendar, CalendarDayButton }
-
-
-
-

@@ -275,8 +275,7 @@ export default function NewLogPage() {
                 "Save Log"
               )}
             </Button>
-            <Button type="button" variant="outline" onClick={() => router.push(`/pets/${petId}`)}>
-              Cancel
+<Button type="button" variant="outline" onClick={() => router.push(`/pets/${petId}`)}>              Cancel
             </Button>
           </div>
         </form>
