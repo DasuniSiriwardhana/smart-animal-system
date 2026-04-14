@@ -43,6 +43,38 @@ import {
   Brain
 } from "lucide-react"
 
+import { generateHealthReportPDF } from '@/lib/pdf-generator';
+import { Printer } from 'lucide-react';
+
+interface HealthReportData {
+  pet_name?: string;
+  species?: string;
+  breed?: string;
+  age?: number;
+  weight?: number;
+  generated_at: string;
+  health_score: number;
+  risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  status?: string;
+  trend?: 'improving' | 'stable' | 'declining';
+  urgency?: string;
+  vital_signs?: {
+    heart_rate: number;
+    temperature: number;
+    activity_level: string;
+    recorded_at: string;
+  };
+  weather?: {
+    temperature: number | string;
+    humidity: number | string;
+    condition: string;
+    impact_score?: number;
+  };
+  issues: string[];
+  recommendations: string[];
+  next_steps: string[];
+}
+
 // FEEDING HISTORY COMPONENT
 type FeedingLog = {
   id: string
@@ -268,6 +300,7 @@ export default function PetDetailPage() {
   const [sensorData, setSensorData] = useState<SensorData[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
+  const [reportData, setReportData] = useState<HealthReportData | null>(null)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [healthReport, setHealthReport] = useState<string | null>(null)
   const [showReport, setShowReport] = useState(false)
@@ -382,6 +415,7 @@ const generateHealthReport = async () => {
     }
 
     const report = data.report;
+    setReportData(report);
     
     // Format the report for display
     const formattedReport = `
@@ -467,11 +501,7 @@ ${report.next_steps.map((step: string, i: number) => `│   ${i + 1}. ${step}`).
     setShowReport(true);
   } finally {
     setGeneratingReport(false);
-    // Auto-hide report after 30 seconds
-    setTimeout(() => {
-      setShowReport(false);
-      setHealthReport(null);
-    }, 30000);
+    
   }
 };
 
@@ -832,25 +862,69 @@ ${report.next_steps.map((step: string, i: number) => `│   ${i + 1}. ${step}`).
 
         <MedicationsList petId={petId} />
 
-        {/* Health Report Popup */}
-        {showReport && healthReport && (
-          <Card className="mb-8 bg-primary/5 border-primary/20 relative">
-            <button
-              onClick={() => {
-                setShowReport(false)
-                setHealthReport(null)
-              }}
-              className="absolute top-4 right-4 p-1 rounded-full hover:bg-primary/20 transition-colors"
-            >
-              <X className="h-4 w-4 text-primary" />
-            </button>
-            <CardContent className="pt-6">
-              <pre className="text-xs whitespace-pre-wrap font-mono bg-white/50 p-4 rounded-lg overflow-x-auto">
-                {healthReport}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
+{/* Beautiful Health Report Modal */}
+{showReport && healthReport && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowReport(false)}>
+    <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      
+      {/* Header */}
+      <div className="sticky top-0 bg-gradient-to-r from-primary to-accent p-6 text-white rounded-t-2xl">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">🏥 Health Report</h2>
+            <p className="text-white/80 text-sm mt-1">{pet?.name} • Generated {new Date().toLocaleDateString()}</p>
+          </div>
+          <button onClick={() => setShowReport(false)} className="p-2 hover:bg-white/20 rounded-full">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Content - Formatted beautifully */}
+      <div className="p-6 space-y-4">
+        {healthReport.split('\n').map((line, i) => {
+          if (line.includes('HEALTH REPORT') || line.includes('═══')) {
+            return <div key={i} className="text-lg font-bold text-primary text-center">{line}</div>;
+          }
+          if (line.includes('📋') || line.includes('📊') || line.includes('📡') || line.includes('⚠️') || line.includes('💡') || line.includes('✅')) {
+            return <div key={i} className="font-semibold text-primary mt-4 mb-2">{line}</div>;
+          }
+          if (line.includes('Health Score:')) {
+            return (
+              <div key={i} className="bg-gradient-to-r from-primary/10 to-accent/10 p-4 rounded-xl">
+                <span className="text-2xl font-bold text-primary">{line}</span>
+              </div>
+            );
+          }
+          return <div key={i} className="text-gray-700 font-mono text-sm">{line}</div>;
+        })}
+      </div>
+
+      {/* Footer */}
+{/* Footer */}
+<div className="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-end gap-3">
+  <Button variant="outline" onClick={() => setShowReport(false)}>Close</Button>
+  <Button variant="outline" onClick={() => window.print()}>
+    <Printer className="mr-2 h-4 w-4" />
+    Print
+  </Button>
+  <Button 
+    onClick={() => {
+      if (reportData) {
+        generateHealthReportPDF(reportData, pet?.name || 'Pet');
+      } else {
+        alert('No report data available');
+      }
+    }}
+    className="bg-gradient-to-r from-primary to-accent text-white"
+  >
+    <Download className="mr-2 h-4 w-4" />
+    Download PDF
+  </Button>
+</div>
+    </div>
+  </div>
+)}
 
         {/* AI Disease Detection Modal */}
         {showDiseaseModal && (

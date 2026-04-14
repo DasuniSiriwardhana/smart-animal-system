@@ -153,9 +153,9 @@ export async function GET(request: Request) {
     const activePetIds = new Set(filteredFeedings.map(f => f.pet_id));
     const totalPets = typedPets.length || 1;
 
-    // ============================================
+    
     // PET SPECIES DISTRIBUTION - FIXED VERSION
-    // ============================================
+    
     
     console.log('🔍 Starting species distribution calculation...');
     console.log('🔍 Total pets to process:', typedPets.length);

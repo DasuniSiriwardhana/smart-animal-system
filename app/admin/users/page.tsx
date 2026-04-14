@@ -114,9 +114,9 @@ export default function UserManagement() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // ============================================
+      
       // 1. FETCH REAL USERS DATA
-      // ============================================
+      
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('*')
@@ -147,9 +147,9 @@ export default function UserManagement() {
         }));
       }
 
-      // ============================================
+      
       // 2. FETCH REAL PETS DATA (GET ALL)
-      // ============================================
+      
       const { data: petsData, error: petsError } = await supabase
         .from('pets')
         .select('*')
@@ -181,9 +181,9 @@ export default function UserManagement() {
           avgPetsPerUser: avgPets
         }));
         
-        // ============================================
+        
         // 3. SPECIES DISTRIBUTION (REAL DATA)
-        // ============================================
+        
         const speciesMap = new Map<string, number>();
         formattedPets.forEach((pet: Pet) => {
           const species = pet.species || 'Other';
@@ -209,9 +209,9 @@ export default function UserManagement() {
         });
         setSpeciesStats(speciesArray.sort((a, b) => b.count - a.count));
         
-        // ============================================
+        
         // 4. BREED POPULARITY (REAL DATA)
-        // ============================================
+        
         const breedMap = new Map<string, { count: number; species: string }>();
         formattedPets.forEach((pet: Pet) => {
           if (pet.breed && pet.breed !== '' && pet.breed !== 'Unknown' && pet.breed !== 'Not specified') {
@@ -234,9 +234,9 @@ export default function UserManagement() {
         });
         setBreedStats(breedArray.sort((a, b) => b.count - a.count).slice(0, 10));
         
-        // ============================================
+        
         // 5. ACTIVITY TRENDS (REAL DATA - LAST 6 MONTHS)
-        // ============================================
+        
         const monthlyData: Record<string, ActivityStats> = {};
         const now = new Date();
         
@@ -274,9 +274,9 @@ export default function UserManagement() {
         setActivityStats(Object.values(monthlyData));
       }
 
-      // ============================================
+      
       // 6. LOCATION DATA - INFER FROM EMAIL DOMAINS
-      // ============================================
+      
       const locationMap = new Map<string, number>();
       
       if (usersData) {

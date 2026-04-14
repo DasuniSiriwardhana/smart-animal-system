@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -23,6 +24,16 @@ import {
   Mail
 } from "lucide-react"
 import { supabase } from "@/lib/supabaseClient"
+import { Trash2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface NotificationSettings {
   email: boolean
@@ -54,6 +65,10 @@ export default function SettingsPage() {
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [notifications, setNotifications] = useState<NotificationSettings>(DEFAULT_NOTIFICATIONS)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+const [deleteConfirmText, setDeleteConfirmText] = useState("");
+const [deleting, setDeleting] = useState(false);
+const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -237,6 +252,39 @@ export default function SettingsPage() {
     }
   }
 
+  const handleDeleteAccount = async () => {
+  if (deleteConfirmText !== user?.email) {
+    setDeleteError("Email address does not match");
+    return;
+  }
+
+  setDeleting(true);
+  setDeleteError(null);
+
+  try {
+    const response = await fetch('/api/auth/delete-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user?.id })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to delete account');
+    }
+
+    await supabase.auth.signOut();
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/';
+    
+  } catch (error) {
+    setDeleteError(error instanceof Error ? error.message : 'Failed to delete account');
+    setDeleting(false);
+  }
+};
+
   if (!user) {
     return null
   }
@@ -417,32 +465,90 @@ export default function SettingsPage() {
             </TabsContent>
 
             <TabsContent value="security">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    Security Settings
-                  </CardTitle>
-                  <CardDescription>Manage your password and security</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800 mb-3">
-                      To change your password, we&apos;ll send a verification link to your email address.
-                    </p>
-                    <Button 
-                      onClick={requestPasswordChange}
-                      disabled={sendingEmail}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
-                      {sendingEmail ? "Sending..." : "Send Reset Email"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Shield className="h-5 w-5" />
+        Security Settings
+      </CardTitle>
+      <CardDescription>Manage your password and security</CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800 mb-3">
+          To change your password, we&apos;ll send a verification link to your email address.
+        </p>
+        <Button 
+          onClick={requestPasswordChange}
+          disabled={sendingEmail}
+          variant="outline"
+          className="w-full"
+        >
+          {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
+          {sendingEmail ? "Sending..." : "Send Reset Email"}
+        </Button>
+      </div>
+
+      {/* Delete Account Section */}
+      <div className="pt-4 border-t border-red-200">
+        <h3 className="text-lg font-semibold text-red-600 mb-2">Delete Account</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Once you delete your account, there is no going back. All your data including pets, logs, and subscriptions will be permanently deleted.
+        </p>
+        
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogTrigger asChild>
+            <Button variant="destructive" className="gap-2">
+              <Trash2 className="h-4 w-4" />
+              Delete Account
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-red-600">Delete Account Permanently</DialogTitle>
+              <DialogDescription>
+                This action cannot be undone. All your data will be permanently removed.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <p className="text-sm">
+                Please type <strong>{user?.email}</strong> to confirm:
+              </p>
+              <Input
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Enter your email address"
+                className="border-red-200"
+              />
+              
+              {deleteError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{deleteError}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteAccount}
+                disabled={deleting || deleteConfirmText !== user?.email}
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                {deleting ? 'Deleting...' : 'Permanently Delete Account'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </CardContent>
+  </Card>
+</TabsContent>
           </Tabs>
 
           <div className="flex justify-end mt-6">

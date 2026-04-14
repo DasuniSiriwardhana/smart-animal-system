@@ -1,21 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const scheduleId = req.nextUrl.searchParams.get('scheduleId');
-    if (!scheduleId) return NextResponse.json({ error: 'Missing scheduleId' }, { status: 400 });
-
-    // Update feeding_logs with confirmed = true (or insert if not exist)
-    await supabase.from('feeding_logs').insert({
-      schedule_id: scheduleId,
-      confirmed: true,
-      feeding_time: new Date(),
-    });
-
-    return NextResponse.redirect('/dashboard?confirmed=true');
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/feeding/check-reminders`);
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed to confirm feeding' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to check reminders' }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/layout/navbar';
 import { Button } from '@/components/ui/Button';
@@ -11,7 +11,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
-export default function VerifyPasswordPage() {
+// Content component that uses useSearchParams
+function VerifyPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -193,5 +194,18 @@ export default function VerifyPasswordPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// Main export with Suspense wrapper
+export default function VerifyPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <VerifyPasswordContent />
+    </Suspense>
   );
 }
