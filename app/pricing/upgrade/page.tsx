@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Navbar } from "@/components/layout/navbar";
-import { PlanGuard } from "@/components/plan-guard";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
-import { Check, CreditCard, Calendar, AlertCircle, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { Check, AlertCircle, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 
@@ -48,7 +47,11 @@ const PLAN_DETAILS = {
   },
 };
 
-export default function UpgradePage() {
+// Force dynamic rendering to avoid prerender issues
+export const dynamic = 'force-dynamic';
+
+// Separate component that uses useSearchParams
+function UpgradePageContent() {
   const { user, refreshUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,7 +63,6 @@ export default function UpgradePage() {
     (searchParams.get("cycle") as "monthly" | "yearly") || "monthly"
   );
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "bank">("card");
   const [cardNumber, setCardNumber] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [cvv, setCvv] = useState("");
@@ -106,7 +108,6 @@ export default function UpgradePage() {
             start_date: startDate,
             end_date: endDate,
             amount: amount,
-            payment_method: paymentMethod,
           })
           .eq("user_id", user?.id);
       } else {
@@ -119,7 +120,6 @@ export default function UpgradePage() {
             start_date: startDate,
             end_date: endDate,
             amount: amount,
-            payment_method: paymentMethod,
           });
       }
       
@@ -330,5 +330,18 @@ export default function UpgradePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main export with Suspense wrapper
+export default function UpgradePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <UpgradePageContent />
+    </Suspense>
   );
 }
