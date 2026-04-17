@@ -26,6 +26,8 @@ function VerifyPasswordContent() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("Token from URL:", token); // Debug log
+    
     if (!token) {
       setError("Invalid or missing verification token");
       setVerifying(false);
@@ -34,11 +36,15 @@ function VerifyPasswordContent() {
 
     const verifyToken = async () => {
       try {
+        console.log("Verifying token:", token);
+        
         const { data, error } = await supabase
           .from('password_reset_requests')
           .select('user_id, expires_at, used')
           .eq('token', token)
           .single();
+
+        console.log("Token verification result:", data, error);
 
         if (error || !data) {
           setError("Invalid verification token");
@@ -52,7 +58,12 @@ function VerifyPasswordContent() {
           return;
         }
 
-        if (new Date(data.expires_at) < new Date()) {
+        const expiresAt = new Date(data.expires_at);
+        const now = new Date();
+        
+        console.log("Expires at:", expiresAt, "Now:", now);
+        
+        if (expiresAt < now) {
           setError("This link has expired. Please request a new password change.");
           setVerifying(false);
           return;
@@ -61,7 +72,9 @@ function VerifyPasswordContent() {
         setUserId(data.user_id);
         setValid(true);
         setVerifying(false);
+        
       } catch (err) {
+        console.error("Token verification error:", err);
         setError("Failed to verify token");
         setVerifying(false);
       }
@@ -85,7 +98,8 @@ function VerifyPasswordContent() {
     setError(null);
 
     try {
-      // Update password using Supabase Admin API
+      console.log("Updating password for user:", userId);
+      
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -101,6 +115,8 @@ function VerifyPasswordContent() {
         throw new Error(data.error || 'Failed to update password');
       }
 
+      console.log("Password updated successfully");
+      
       // Mark token as used
       await supabase
         .from('password_reset_requests')
@@ -114,6 +130,7 @@ function VerifyPasswordContent() {
       }, 3000);
       
     } catch (err) {
+      console.error("Password update error:", err);
       setError(err instanceof Error ? err.message : "Failed to update password. Please try again.");
     } finally {
       setLoading(false);
@@ -198,8 +215,8 @@ function VerifyPasswordContent() {
             )}
 
             {!valid && !success && (
-              <Button onClick={() => router.push('/settings')} className="w-full">
-                Back to Settings
+              <Button onClick={() => router.push('/forgot-password')} className="w-full">
+                Request New Reset Link
               </Button>
             )}
           </CardContent>

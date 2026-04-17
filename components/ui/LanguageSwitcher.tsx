@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Globe, Check, ChevronDown } from 'lucide-react';
+import { Globe, Check, ChevronDown, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
   DropdownMenu,
@@ -57,95 +57,106 @@ export function LanguageSwitcher() {
   });
   
   const [isOpen, setIsOpen] = useState(false);
-  const [isTranslateReady, setIsTranslateReady] = useState(false);
-
-  // Check if Google Translate is ready
-  useEffect(() => {
-    const checkTranslateReady = () => {
-      const translateElement = document.querySelector('.goog-te-combo') as HTMLSelectElement;
-      if (translateElement) {
-        setIsTranslateReady(true);
-      } else {
-        setTimeout(checkTranslateReady, 500);
-      }
-    };
-    checkTranslateReady();
-  }, []);
+  const [error, setError] = useState<string | null>(null);
 
   const changeLanguage = (langCode: string) => {
     setCurrentLang(langCode);
     localStorage.setItem('preferred-language', langCode);
     setIsOpen(false);
+    setError(null);
     
-    // Function to trigger translation with retry
+    // Try multiple methods to trigger translation
     const triggerTranslation = () => {
-      const translateElement = document.querySelector('.goog-te-combo') as HTMLSelectElement;
-      if (translateElement) {
-        translateElement.value = langCode;
-        translateElement.dispatchEvent(new Event('change'));
-      } else if (isTranslateReady === false) {
-        setTimeout(triggerTranslation, 500);
+      // Method 1: Find and change the Google Translate dropdown
+      const translateCombo = document.querySelector('.goog-te-combo') as HTMLSelectElement;
+      if (translateCombo) {
+        translateCombo.value = langCode;
+        translateCombo.dispatchEvent(new Event('change'));
+        console.log('Translation triggered via dropdown to:', langCode);
+        return;
       }
+      
+      // Method 2: If dropdown not found, reload with parameter
+      console.log('Dropdown not found, reloading with parameter');
+      const url = new URL(window.location.href);
+      url.searchParams.set('googtrans', `/en/${langCode}`);
+      window.location.href = url.toString();
     };
     
     triggerTranslation();
+    
+    // If translation fails after 3 seconds, show error
+    setTimeout(() => {
+      const translateCombo = document.querySelector('.goog-te-combo') as HTMLSelectElement;
+      if (translateCombo && translateCombo.value !== langCode) {
+        setError('Translation may not be available for this language. Please try again later.');
+      }
+    }, 3000);
   };
 
   const currentLanguage = LANGUAGES.find(l => l.code === currentLang);
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2">
-          <Globe className="h-4 w-4 text-muted-foreground" />
-          <span className="hidden sm:inline">{currentLanguage?.flag} {currentLanguage?.name}</span>
-          <ChevronDown className="h-3 w-3 opacity-50" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-64 max-h-80 overflow-y-auto" align="end">
-        <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Select Language</span>
-          <Badge variant="outline" className="text-[10px]">100+ languages</Badge>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        
-        {/* Quick Access - South Asian Languages */}
-        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-          South Asian Languages
+    <>
+      {error && (
+        <div className="fixed bottom-20 right-4 z-50 bg-red-100 border border-red-300 text-red-700 px-4 py-2 rounded-lg text-sm shadow-lg">
+          {error}
+          <button onClick={() => setError(null)} className="ml-2 text-xs underline">Dismiss</button>
         </div>
-        {LANGUAGES.filter(l => ['si', 'ta', 'hi', 'bn', 'ur'].includes(l.code)).map((lang) => (
-          <DropdownMenuItem
-            key={lang.code}
-            onClick={() => changeLanguage(lang.code)}
-            className="flex items-center justify-between cursor-pointer"
-          >
-            <span>
-              <span className="mr-2">{lang.flag}</span>
-              {lang.nativeName} <span className="text-muted-foreground text-xs ml-1">({lang.name})</span>
-            </span>
-            {currentLang === lang.code && <Check className="h-4 w-4 text-green-500" />}
-          </DropdownMenuItem>
-        ))}
-        
-        <DropdownMenuSeparator />
-        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-          All Languages
-        </div>
-        
-        {LANGUAGES.map((lang) => (
-          <DropdownMenuItem
-            key={lang.code}
-            onClick={() => changeLanguage(lang.code)}
-            className="flex items-center justify-between cursor-pointer"
-          >
-            <span>
-              <span className="mr-2">{lang.flag}</span>
-              {lang.nativeName} <span className="text-muted-foreground text-xs ml-1">({lang.name})</span>
-            </span>
-            {currentLang === lang.code && <Check className="h-4 w-4 text-green-500" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      )}
+      
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="gap-2">
+            <Globe className="h-4 w-4 text-muted-foreground" />
+            <span className="hidden sm:inline">{currentLanguage?.flag} {currentLanguage?.name}</span>
+            <ChevronDown className="h-3 w-3 opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-64 max-h-80 overflow-y-auto" align="end">
+          <DropdownMenuLabel className="flex items-center justify-between">
+            <span>Select Language</span>
+            <Badge variant="outline" className="text-[10px]">100+ languages</Badge>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            South Asian Languages
+          </div>
+          {LANGUAGES.filter(l => ['si', 'ta', 'hi', 'bn', 'ur'].includes(l.code)).map((lang) => (
+            <DropdownMenuItem
+              key={lang.code}
+              onClick={() => changeLanguage(lang.code)}
+              className="flex items-center justify-between cursor-pointer"
+            >
+              <span>
+                <span className="mr-2">{lang.flag}</span>
+                {lang.nativeName} <span className="text-muted-foreground text-xs ml-1">({lang.name})</span>
+              </span>
+              {currentLang === lang.code && <Check className="h-4 w-4 text-green-500" />}
+            </DropdownMenuItem>
+          ))}
+          
+          <DropdownMenuSeparator />
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            All Languages
+          </div>
+          
+          {LANGUAGES.map((lang) => (
+            <DropdownMenuItem
+              key={lang.code}
+              onClick={() => changeLanguage(lang.code)}
+              className="flex items-center justify-between cursor-pointer"
+            >
+              <span>
+                <span className="mr-2">{lang.flag}</span>
+                {lang.nativeName} <span className="text-muted-foreground text-xs ml-1">({lang.name})</span>
+              </span>
+              {currentLang === lang.code && <Check className="h-4 w-4 text-green-500" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }

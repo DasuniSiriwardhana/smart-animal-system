@@ -39,24 +39,22 @@ export default function RootLayout({
       <head>
         <meta 
           httpEquiv="Content-Security-Policy" 
-          content="frame-src 'self' https://my.spline.design https://*.spline.design; script-src 'unsafe-inline' 'unsafe-eval' 'self' https://my.spline.design https://translate.google.com;" 
+          content="frame-src 'self' https://my.spline.design https://*.spline.design; script-src 'unsafe-inline' 'unsafe-eval' 'self' https://my.spline.design https://translate.google.com https://translate.googleapis.com;" 
         />
         
-        {/* Google Translate Widget - Hidden but functional */}
         <Script
-          id="google-translate-init"
+          id="google-translate"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
-              function googleTranslateElementInit() {
+              window.googleTranslateElementInit = function() {
                 new google.translate.TranslateElement({
                   pageLanguage: 'en',
-                  includedLanguages: 'en,si,ta,hi,es,fr,de,it,pt,ru,zh-CN,zh-TW,ja,ko,ar,bn,ur,th,vi,id,ms,fil,sw,tr,nl,pl,sv,no,fi,da,el,he,fa',
+                  includedLanguages: 'en,si,ta,hi,es,fr,de,it,pt,ru,zh-CN,ja,ko,ar,bn,ur,th,vi,id,ms,fil,sw,tr,nl,pl,sv,no,fi,da,el,he,fa',
                   layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-                  autoDisplay: false,
-                  multilanguagePage: true
+                  autoDisplay: false
                 }, 'google_translate_element');
-              }
+              };
             `,
           }}
         />
@@ -71,8 +69,7 @@ export default function RootLayout({
           <main>{children}</main>
           <Footer />
           <Chatbot />
-          {/* Google Translate Element - MUST be visible for translation to work */}
-          <div id="google_translate_element" style={{ position: 'fixed', bottom: '0', left: '0', width: '1px', height: '1px', opacity: '0', pointerEvents: 'none' }} />
+          <div id="google_translate_element" style={{ position: 'absolute', top: '-9999px', left: '-9999px' }} />
         </AuthProvider>
       </body>
     </html>

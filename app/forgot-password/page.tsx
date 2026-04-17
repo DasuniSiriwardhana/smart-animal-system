@@ -51,8 +51,10 @@ export default function ForgotPasswordPage() {
         used: false
       });
 
-      // Send email
+      // FIX: Use the full URL with the correct path
       const resetLink = `${window.location.origin}/verify-password?token=${token}`;
+      
+      console.log("Reset link being sent:", resetLink); // Debug log
       
       const response = await fetch('/api/auth/send-password-reset', {
         method: 'POST',
@@ -65,12 +67,14 @@ export default function ForgotPasswordPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send email');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
       }
 
       setSuccess(true);
       
     } catch (err) {
+      console.error("Password reset error:", err);
       setError(err instanceof Error ? err.message : "Failed to send reset email");
     } finally {
       setLoading(false);
