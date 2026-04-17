@@ -27,7 +27,8 @@ export async function proxy(req: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
 
   const pathname = req.nextUrl.pathname
-  const isAuthPage = pathname === '/login' || pathname === '/signup'
+  // ✅ ADD /verify-password to auth pages (so it doesn't get blocked)
+  const isAuthPage = pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password' || pathname === '/verify-password'
   const isHomePage = pathname === '/'
   const isAdminPage = pathname.startsWith('/admin')
   const isProtectedPage =
@@ -49,7 +50,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // Logged in + hitting login/signup → redirect based on role
+  // Logged in + hitting login/signup/forgot-password/verify-password → redirect based on role
   if (session && isAuthPage) {
     const { data: profile } = await supabase
       .from('profiles')
