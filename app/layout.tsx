@@ -38,6 +38,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* ADD THIS CSP META TAG - FIXES SPLINE IFRAME */}
+        <meta 
+          httpEquiv="Content-Security-Policy" 
+          content="frame-src 'self' https://my.spline.design https://*.spline.design; script-src 'unsafe-inline' 'unsafe-eval' 'self' https://my.spline.design https://translate.google.com;" 
+        />
+        
         {/* Google Translate Widget - Hidden, controlled by navbar */}
         <Script
           id="google-translate-init"

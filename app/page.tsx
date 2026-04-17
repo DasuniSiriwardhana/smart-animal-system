@@ -1,5 +1,6 @@
 "use client";
 
+import { SplineHomeBackground } from '@/components/ui/SplineHomeBackground';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -57,6 +58,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <SplineHomeBackground />
       <Navbar />
       
       {/* Hero Section with Abstract Art & Paw Prints */}

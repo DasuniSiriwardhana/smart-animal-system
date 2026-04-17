@@ -479,3 +479,18 @@ body {
 .goog-te-menu2 {
   border: none !important;
 }
+
+/* Hide Spline watermark */
+spline-viewer::part(watermark),
+.spline-watermark,
+[data-spline-watermark],
+iframe + div {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Target any possible watermark elements */
+iframe ~ div:last-child {
+  display: none !important;
+}
