@@ -370,7 +370,7 @@ export default function AboutPage() {
   </div>
 </section>
 
-      {/* Technologies Used Section - UPDATED with all technologies */}
+      {/* Technologies Used Section - Main Platforms & Tools */}
       <section className="py-16 bg-muted/30 z-10 relative">
         <div className="container mx-auto px-4">
           <motion.div 
@@ -379,61 +379,27 @@ export default function AboutPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl font-bold mb-4">Technologies Used</h2>
+            <h2 className="text-3xl font-bold mb-4">Technologies & Platforms</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Built with modern technologies to deliver the best pet care experience
+              Built with modern tools and cloud platforms
             </p>
           </motion.div>
 
-          {/* Frontend Technologies */}
+          {/* Development Environment */}
           <div className="mb-10">
             <h3 className="text-xl font-semibold mb-4 text-center flex items-center justify-center gap-2">
-              <Layout className="h-5 w-5 text-primary" />
-              Frontend
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {[
-                { name: 'Next.js 15', icon: '⚛️', color: 'from-blue-500 to-cyan-500', desc: 'React Framework' },
-                { name: 'TypeScript', icon: '📘', color: 'from-blue-600 to-blue-400', desc: 'Type Safety' },
-                { name: 'Tailwind CSS', icon: '🎨', color: 'from-cyan-600 to-blue-500', desc: 'Styling' },
-                { name: 'Framer Motion', icon: '🎭', color: 'from-purple-500 to-pink-500', desc: 'Animations' },
-                { name: 'Recharts', icon: '', color: 'from-green-500 to-emerald-500', desc: 'Data Visualization' },
-                { name: 'Lucide Icons', icon: '✨', color: 'from-yellow-500 to-orange-500', desc: 'Icons' },
-              ].map((tech, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, delay: index * 0.03 }}
-                  className="bg-card rounded-xl p-3 text-center hover:shadow-lg transition-all group relative overflow-hidden"
-                >
-                  <div className="absolute -top-2 -right-2 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <PawPrint className="w-6 h-6" />
-                  </div>
-                  <div className={`text-2xl mb-1 inline-block p-2 rounded-full bg-gradient-to-br ${tech.color} bg-opacity-10 group-hover:scale-110 transition-transform`}>
-                    {tech.icon}
-                  </div>
-                  <h3 className="font-semibold text-sm">{tech.name}</h3>
-                  <p className="text-xs text-muted-foreground">{tech.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Backend & Database */}
-          <div className="mb-10">
-            <h3 className="text-xl font-semibold mb-4 text-center flex items-center justify-center gap-2">
-              <Server className="h-5 w-5 text-primary" />
-              Backend & Database
+              <Code className="h-5 w-5 text-primary" />
+              Development Environment
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {[
-                { name: 'Supabase', icon: '🔥', color: 'from-green-600 to-emerald-500', desc: 'Database & Auth' },
-                { name: 'PostgreSQL', icon: '🐘', color: 'from-blue-600 to-indigo-500', desc: 'Database' },
-                { name: 'FastAPI', icon: '🚀', color: 'from-teal-500 to-green-500', desc: 'API Framework' },
-                { name: 'Python', icon: '🐍', color: 'from-yellow-500 to-green-500', desc: 'Backend Language' },
-                { name: 'REST API', icon: '🔗', color: 'from-purple-500 to-pink-500', desc: 'API Architecture' },
+                { name: 'VS Code', icon: '💻', desc: 'Code Editor' },
+                { name: 'Git', icon: '📝', desc: 'Version Control' },
+                { name: 'GitHub', icon: '🐙', desc: 'Repository Hosting' },
+                { name: 'Next.js', icon: '▲', desc: 'React Framework' },
+                { name: 'TypeScript', icon: '📘', desc: 'Type Safety' },
+                { name: 'Tailwind CSS', icon: '🎨', desc: 'Styling' },
+                { name: 'Python', icon: '🐍', desc: 'Backend Language' },
               ].map((tech, index) => (
                 <motion.div
                   key={index}
@@ -446,7 +412,7 @@ export default function AboutPage() {
                   <div className="absolute -top-2 -right-2 opacity-5 group-hover:opacity-10 transition-opacity">
                     <PawPrint className="w-6 h-6" />
                   </div>
-                  <div className={`text-2xl mb-1 inline-block p-2 rounded-full bg-gradient-to-br ${tech.color} bg-opacity-10 group-hover:scale-110 transition-transform`}>
+                  <div className="text-3xl mb-1 inline-block p-2 rounded-full bg-gradient-to-br from-primary/10 to-accent/10 group-hover:scale-110 transition-transform">
                     {tech.icon}
                   </div>
                   <h3 className="font-semibold text-sm">{tech.name}</h3>
@@ -456,88 +422,19 @@ export default function AboutPage() {
             </div>
           </div>
 
-          {/* AI & Machine Learning */}
+          {/* Cloud & Hosting Platforms */}
           <div className="mb-10">
-            <h3 className="text-xl font-semibold mb-4 text-center flex items-center justify-center gap-2">
-              <Brain className="h-5 w-5 text-primary" />
-              AI & Machine Learning
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {[
-                { name: 'TensorFlow', icon: '🧠', color: 'from-orange-500 to-red-500', desc: 'Deep Learning' },
-                { name: 'Keras', icon: '🔬', color: 'from-red-500 to-orange-500', desc: 'Neural Networks' },
-                { name: 'LSTM', icon: '📈', color: 'from-purple-500 to-pink-500', desc: 'Time Series' },
-                { name: 'EfficientNet', icon: '🖼️', color: 'from-blue-500 to-cyan-500', desc: 'Image Classification' },
-                { name: 'Random Forest', icon: '🌲', color: 'from-green-500 to-emerald-500', desc: 'Regression' },
-                { name: 'Scikit-learn', icon: '📐', color: 'from-yellow-500 to-orange-500', desc: 'ML Library' },
-              ].map((tech, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, delay: index * 0.03 }}
-                  className="bg-card rounded-xl p-3 text-center hover:shadow-lg transition-all group relative overflow-hidden"
-                >
-                  <div className="absolute -top-2 -right-2 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <PawPrint className="w-6 h-6" />
-                  </div>
-                  <div className={`text-2xl mb-1 inline-block p-2 rounded-full bg-gradient-to-br ${tech.color} bg-opacity-10 group-hover:scale-110 transition-transform`}>
-                    {tech.icon}
-                  </div>
-                  <h3 className="font-semibold text-sm">{tech.name}</h3>
-                  <p className="text-xs text-muted-foreground">{tech.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Data & Analytics */}
-          <div className="mb-10">
-            <h3 className="text-xl font-semibold mb-4 text-center flex items-center justify-center gap-2">
-              <BarChart className="h-5 w-5 text-primary" />
-              Data & Analytics
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {[
-                { name: 'Google Looker Studio', icon: '', color: 'from-yellow-500 to-orange-500', desc: 'Data Visualization' },
-                { name: 'Pandas', icon: '🐼', color: 'from-blue-500 to-purple-500', desc: 'Data Analysis' },
-                { name: 'NumPy', icon: '🔢', color: 'from-blue-600 to-cyan-500', desc: 'Numerical Computing' },
-                { name: 'Matplotlib', icon: '📉', color: 'from-green-500 to-teal-500', desc: 'Plotting' },
-              ].map((tech, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, delay: index * 0.03 }}
-                  className="bg-card rounded-xl p-3 text-center hover:shadow-lg transition-all group relative overflow-hidden"
-                >
-                  <div className="absolute -top-2 -right-2 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <PawPrint className="w-6 h-6" />
-                  </div>
-                  <div className={`text-2xl mb-1 inline-block p-2 rounded-full bg-gradient-to-br ${tech.color} bg-opacity-10 group-hover:scale-110 transition-transform`}>
-                    {tech.icon}
-                  </div>
-                  <h3 className="font-semibold text-sm">{tech.name}</h3>
-                  <p className="text-xs text-muted-foreground">{tech.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Deployment & DevOps */}
-          <div>
             <h3 className="text-xl font-semibold mb-4 text-center flex items-center justify-center gap-2">
               <Cloud className="h-5 w-5 text-primary" />
-              Deployment & DevOps
+              Cloud & Hosting Platforms
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {[
-                { name: 'Vercel', icon: '▲', color: 'from-gray-700 to-black', desc: 'Frontend Hosting' },
-                { name: 'Google Colab', icon: '📓', color: 'from-yellow-500 to-orange-500', desc: 'ML Training' },
-                { name: 'ngrok', icon: '🔌', color: 'from-blue-500 to-cyan-500', desc: 'API Tunneling' },
-                { name: 'Git', icon: '📝', color: 'from-orange-500 to-red-500', desc: 'Version Control' },
+                { name: 'Vercel', icon: '▲', desc: 'Frontend Hosting' },
+                { name: 'Supabase', icon: '🔥', desc: 'Database & Auth' },
+                { name: 'Google Colab', icon: '📓', desc: 'ML Training' },
+                { name: 'Hugging Face', icon: '🤗', desc: 'ML Deployment' },
+                { name: 'Looker Studio', icon: '📊', desc: 'Data Visualization' },
               ].map((tech, index) => (
                 <motion.div
                   key={index}
@@ -550,7 +447,41 @@ export default function AboutPage() {
                   <div className="absolute -top-2 -right-2 opacity-5 group-hover:opacity-10 transition-opacity">
                     <PawPrint className="w-6 h-6" />
                   </div>
-                  <div className={`text-2xl mb-1 inline-block p-2 rounded-full bg-gradient-to-br ${tech.color} bg-opacity-10 group-hover:scale-110 transition-transform`}>
+                  <div className="text-3xl mb-1 inline-block p-2 rounded-full bg-gradient-to-br from-primary/10 to-accent/10 group-hover:scale-110 transition-transform">
+                    {tech.icon}
+                  </div>
+                  <h3 className="font-semibold text-sm">{tech.name}</h3>
+                  <p className="text-xs text-muted-foreground">{tech.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Database & Design Tools */}
+          <div className="mb-10">
+            <h3 className="text-xl font-semibold mb-4 text-center flex items-center justify-center gap-2">
+              <Database className="h-5 w-5 text-primary" />
+              Database & Design Tools
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {[
+                { name: 'PostgreSQL', icon: '🐘', desc: 'Database' },
+                { name: 'Oracle Data Modeler', icon: '📐', desc: 'ER Diagram Design' },
+                { name: 'Spline', icon: '🎨', desc: '3D Animations' },
+                { name: 'Gmail SMTP', icon: '📧', desc: 'Email Service' },
+              ].map((tech, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.3, delay: index * 0.03 }}
+                  className="bg-card rounded-xl p-3 text-center hover:shadow-lg transition-all group relative overflow-hidden"
+                >
+                  <div className="absolute -top-2 -right-2 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <PawPrint className="w-6 h-6" />
+                  </div>
+                  <div className="text-3xl mb-1 inline-block p-2 rounded-full bg-gradient-to-br from-primary/10 to-accent/10 group-hover:scale-110 transition-transform">
                     {tech.icon}
                   </div>
                   <h3 className="font-semibold text-sm">{tech.name}</h3>
@@ -572,7 +503,7 @@ export default function AboutPage() {
             className="inline-flex items-center gap-3 bg-gradient-to-r from-primary/10 to-accent/10 rounded-full px-6 py-3"
           >
             <Award className="h-5 w-5 text-primary" />
-            <span className="font-medium">Powered by 25+ Modern Technologies</span>
+            <span className="font-medium">Powered by 20+ Modern Technologies & Platforms</span>
           </motion.div>
         </div>
       </section>
