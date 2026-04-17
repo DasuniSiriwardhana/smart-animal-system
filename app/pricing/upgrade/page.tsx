@@ -47,10 +47,8 @@ const PLAN_DETAILS = {
   },
 };
 
-// Force dynamic rendering to avoid prerender issues
 export const dynamic = 'force-dynamic';
 
-// Separate component that uses useSearchParams
 function UpgradePageContent() {
   const { user, refreshUser } = useAuth();
   const router = useRouter();
@@ -93,6 +91,8 @@ function UpgradePageContent() {
         ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       
+      let subscriptionId = null;
+      
       const { data: existingSub } = await supabase
         .from("subscriptions")
         .select("id")
@@ -100,7 +100,7 @@ function UpgradePageContent() {
         .maybeSingle();
 
       if (existingSub) {
-        await supabase
+        const { data, error } = await supabase
           .from("subscriptions")
           .update({
             plan_type: selectedPlan,
@@ -109,9 +109,13 @@ function UpgradePageContent() {
             end_date: endDate,
             amount: amount,
           })
-          .eq("user_id", user?.id);
+          .eq("user_id", user?.id)
+          .select();
+        
+        if (error) throw error;
+        if (data && data[0]) subscriptionId = data[0].id;
       } else {
-        await supabase
+        const { data, error } = await supabase
           .from("subscriptions")
           .insert({
             user_id: user?.id,
@@ -120,9 +124,53 @@ function UpgradePageContent() {
             start_date: startDate,
             end_date: endDate,
             amount: amount,
-          });
+            payment_method: "card",
+          })
+          .select();
+        
+        if (error) throw error;
+        if (data && data[0]) subscriptionId = data[0].id;
       }
       
+      await supabase
+        .from("invoices")
+        .insert({
+          user_id: user?.id,
+          amount: amount,
+          status: "paid",
+          invoice_date: startDate,
+          plan_type: selectedPlan,
+          billing_interval: billingCycle === "monthly" ? "month" : "year"
+        });
+
+      // ✅ ONLY ADDITION: Insert payment record for revenue analytics
+      const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+      
+      const { error: paymentError } = await supabase
+        .from('subscription_payments')
+        .insert({
+          user_id: user?.id,
+          subscription_id: subscriptionId,
+          plan_type: selectedPlan,
+          amount: amount,
+          currency: 'LKR',
+          billing_interval: billingCycle === "monthly" ? "month" : "year",
+          payment_date: startDate,
+          payment_method: 'card',
+          status: 'completed',
+          transaction_id: transactionId
+        });
+
+      if (paymentError) {
+        console.error('Error saving payment record:', paymentError);
+        // Don't throw - subscription still works
+      }
+      
+      await supabase
+        .from('profiles')
+        .update({ plan: selectedPlan })
+        .eq('id', user?.id);
+
       await refreshUser();
       router.push("/dashboard?upgrade=success");
       
@@ -151,7 +199,6 @@ function UpgradePageContent() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Plan Selection */}
           <div>
             <Card>
               <CardHeader>
@@ -160,7 +207,6 @@ function UpgradePageContent() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <RadioGroup value={selectedPlan} onValueChange={(v) => setSelectedPlan(v as "standard" | "premium")}>
-                  {/* Standard Plan Option */}
                   <div className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer transition-all ${selectedPlan === "standard" ? "border-primary bg-primary/5" : "hover:border-primary/50"}`}>
                     <RadioGroupItem value="standard" id="standard" />
                     <Label htmlFor="standard" className="flex-1 cursor-pointer">
@@ -168,7 +214,7 @@ function UpgradePageContent() {
                         <div>
                           <div className="font-semibold text-lg">Standard Plan</div>
                           <div className="text-2xl font-bold mt-1">
-                            LKR 1,500
+                            LKR {plan.price.toLocaleString()}
                             <span className="text-sm font-normal text-muted-foreground">/month</span>
                           </div>
                         </div>
@@ -176,7 +222,6 @@ function UpgradePageContent() {
                     </Label>
                   </div>
                   
-                  {/* Premium Plan Option */}
                   <div className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer transition-all ${selectedPlan === "premium" ? "border-primary bg-primary/5" : "hover:border-primary/50"}`}>
                     <RadioGroupItem value="premium" id="premium" />
                     <Label htmlFor="premium" className="flex-1 cursor-pointer">
@@ -190,7 +235,7 @@ function UpgradePageContent() {
                             </Badge>
                           </div>
                           <div className="text-2xl font-bold mt-1">
-                            LKR 3,500
+                            LKR {PLAN_DETAILS.premium.price.toLocaleString()}
                             <span className="text-sm font-normal text-muted-foreground">/month</span>
                           </div>
                         </div>
@@ -221,7 +266,6 @@ function UpgradePageContent() {
               </CardContent>
             </Card>
 
-            {/* Plan Features */}
             <Card className="mt-4">
               <CardHeader>
                 <CardTitle>What&apos;s Included</CardTitle>
@@ -239,7 +283,6 @@ function UpgradePageContent() {
             </Card>
           </div>
 
-          {/* Payment Form */}
           <div>
             <Card>
               <CardHeader>
@@ -333,7 +376,6 @@ function UpgradePageContent() {
   );
 }
 
-// Main export with Suspense wrapper
 export default function UpgradePage() {
   return (
     <Suspense fallback={
