@@ -836,7 +836,7 @@ const fetchReportData = async () => {
                   <label className="text-sm font-medium">Email Address</label>
                   <input
                     type="email"
-                    placeholder="colleague@example.com"
+                    placeholder="colleague@gmail.com"
                     value={emailAddress}
                     onChange={(e) => setEmailAddress(e.target.value)}
                     className="w-full mt-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"

@@ -29,29 +29,22 @@ export default function SignInPage() {
       if (error) throw error;
 
       if (data.user) {
-        console.log('User logged in:', data.user.id);
-        
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', data.user.id)
           .single();
 
-        console.log('Profile data:', profile);
-        console.log('Role:', profile?.role);
-        console.log('Error if any:', profileError);
-
         if (profile?.role === 'admin') {
-          console.log('Redirecting to /admin');
           window.location.href = '/admin';
         } else {
-          console.log('Redirecting to /dashboard');
           window.location.href = '/dashboard';
         }
       }
     } catch (err) {
       const error = err as { message: string };
       setError(error.message || "Invalid email or password");
+    } finally {
       setLoading(false);
     }
   };

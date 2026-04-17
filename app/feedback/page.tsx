@@ -60,7 +60,7 @@ export default function FeedbackPage() {
               </div>
               <div>
                 <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" placeholder="john@example.com" required className="mt-1.5" />
+                <Input id="email" type="email" placeholder="yourname@gmail.com" required className="mt-1.5" />
               </div>
             </div>
 

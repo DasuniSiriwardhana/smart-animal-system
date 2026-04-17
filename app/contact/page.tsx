@@ -130,7 +130,7 @@ export default function ContactPage() {
                   <Label htmlFor="name">Your Name</Label>
                   <Input 
                     id="name" 
-                    placeholder="John Doe" 
+                    placeholder="David Warner" 
                     required 
                     className="mt-1.5"
                     value={formData.name}
@@ -143,7 +143,7 @@ export default function ContactPage() {
                   <Input 
                     id="email" 
                     type="email" 
-                    placeholder="john@example.com" 
+                    placeholder="yourname@gmail.com" 
                     required 
                     className="mt-1.5"
                     value={formData.email}
