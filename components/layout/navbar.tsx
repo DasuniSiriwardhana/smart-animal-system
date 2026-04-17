@@ -41,6 +41,7 @@ export function Navbar() {
   const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -56,9 +57,20 @@ export function Navbar() {
     checkAdmin()
   }, [user])
 
+  // Debug log to check if user exists
+  useEffect(() => {
+    console.log("Navbar - User:", user?.email, "Admin:", isAdmin)
+  }, [user, isAdmin])
+
   const getInitials = (name?: string) => {
     if (!name || name === "") return "U"
     return name.slice(0, 2).toUpperCase()
+  }
+
+  const handleLogout = async () => {
+    console.log("Logging out...")
+    await signOut()
+    router.push('/')
   }
 
   // Navigation items for regular users
@@ -82,7 +94,6 @@ export function Navbar() {
   // Different nav items for admin vs regular users
   const getNavItems = () => {
     if (isAdmin) {
-      // Admin sees only essential items + admin panel link
       return [
         { href: "/", label: "Home", icon: Home },
         { href: "/admin", label: "Admin Panel", icon: Shield },
@@ -155,52 +166,70 @@ export function Navbar() {
 
           {/* Right Side - Auth Buttons / User Menu */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* 🌍 Language Switcher - Visible for ALL users */}
             <LanguageSwitcher />
             
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div className="flex items-center gap-2 cursor-pointer hover:opacity-80">
-                    <Avatar className="h-8 w-8 ring-2 ring-accent/20">
-                      <AvatarImage src={user?.avatar_url || ''} />
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-sm">
-                        {getInitials(user.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="hidden lg:inline-block text-sm font-medium">
-                      {user.name || user.email?.split('@')[0]}
-                    </span>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{user.name || user.email}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+              // FIXED: Simplified dropdown with better styling
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    console.log("Avatar clicked - toggling dropdown")
+                    setDropdownOpen(!dropdownOpen)
+                  }}
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 focus:outline-none"
+                >
+                  <Avatar className="h-8 w-8 ring-2 ring-accent/20">
+                    <AvatarImage src={user?.avatar_url || ''} />
+                    <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-sm">
+                      {getInitials(user.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden lg:inline-block text-sm font-medium">
+                    {user.name || user.email?.split('@')[0]}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 opacity-50 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {dropdownOpen && (
+                  <>
+                    {/* Backdrop to close dropdown when clicking outside */}
+                    <div 
+                      className="fixed inset-0 z-40"
+                      onClick={() => setDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg border z-50">
+                      <div className="p-3 border-b">
+                        <p className="text-sm font-medium">{user.name || user.email}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                      <Link 
+                        href="/profile" 
+                        className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        <User className="h-4 w-4" />
+                        Profile
+                      </Link>
+                      <Link 
+                        href="/settings" 
+                        className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        <Settings className="h-4 w-4" />
+                        Settings
+                      </Link>
+                      <div className="border-t my-1"></div>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-gray-100 w-full text-left"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Logout
+                      </button>
                     </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile" className="cursor-pointer">
-                      <User className="mr-2 h-4 w-4" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={async () => await signOut()} className="text-red-600 cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </>
+                )}
+              </div>
             ) : (
               <>
                 <Link href="/login">
@@ -229,7 +258,6 @@ export function Navbar() {
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden border-t py-4 space-y-2">
-            {/* 🌍 Language Switcher in Mobile Menu */}
             <div className="px-4 py-2">
               <LanguageSwitcher />
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/layout/navbar';
 import { Button } from '@/components/ui/Button';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2, CheckCircle, AlertCircle, PawPrint } from 'lucide-react';
 
-// ✅ Define proper type for schedule details
+// Define proper type for schedule details
 type ScheduleDetails = {
   meal_type: string;
   portion_size: number;
@@ -18,7 +18,8 @@ type ScheduleDetails = {
   food_type: string;
 };
 
-export default function FeedingConfirmPage() {
+// This component uses useSearchParams - it MUST be wrapped in Suspense
+function FeedingConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const scheduleId = searchParams.get('scheduleId');
@@ -149,7 +150,6 @@ export default function FeedingConfirmPage() {
                   </div>
                 )}
 
-                {/* Schedule Details Summary */}
                 {scheduleDetails && (
                   <div className="p-3 bg-primary/5 rounded-lg text-sm">
                     <p className="font-medium mb-1">📋 Meal Details:</p>
@@ -216,5 +216,18 @@ export default function FeedingConfirmPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// Main export with Suspense boundary
+export default function FeedingConfirmPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <FeedingConfirmContent />
+    </Suspense>
   );
 }
