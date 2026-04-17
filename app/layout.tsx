@@ -22,7 +22,6 @@ export const metadata: Metadata = {
   description: "Pet health monitoring and management system",
 };
 
-// Add this - it's required for mobile responsiveness
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -38,13 +37,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* ADD THIS CSP META TAG - FIXES SPLINE IFRAME */}
         <meta 
           httpEquiv="Content-Security-Policy" 
           content="frame-src 'self' https://my.spline.design https://*.spline.design; script-src 'unsafe-inline' 'unsafe-eval' 'self' https://my.spline.design https://translate.google.com;" 
         />
         
-        {/* Google Translate Widget - Hidden, controlled by navbar */}
+        {/* Google Translate Widget - Hidden but functional */}
         <Script
           id="google-translate-init"
           strategy="afterInteractive"
@@ -73,8 +71,8 @@ export default function RootLayout({
           <main>{children}</main>
           <Footer />
           <Chatbot />
-          {/* Hidden Google Translate Element */}
-          <div id="google_translate_element" style={{ display: 'none' }} />
+          {/* Google Translate Element - MUST be visible for translation to work */}
+          <div id="google_translate_element" style={{ position: 'fixed', bottom: '0', left: '0', width: '1px', height: '1px', opacity: '0', pointerEvents: 'none' }} />
         </AuthProvider>
       </body>
     </html>

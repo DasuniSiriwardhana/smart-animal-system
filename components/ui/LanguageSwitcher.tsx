@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Globe, Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
@@ -57,18 +57,38 @@ export function LanguageSwitcher() {
   });
   
   const [isOpen, setIsOpen] = useState(false);
+  const [isTranslateReady, setIsTranslateReady] = useState(false);
+
+  // Check if Google Translate is ready
+  useEffect(() => {
+    const checkTranslateReady = () => {
+      const translateElement = document.querySelector('.goog-te-combo') as HTMLSelectElement;
+      if (translateElement) {
+        setIsTranslateReady(true);
+      } else {
+        setTimeout(checkTranslateReady, 500);
+      }
+    };
+    checkTranslateReady();
+  }, []);
 
   const changeLanguage = (langCode: string) => {
     setCurrentLang(langCode);
     localStorage.setItem('preferred-language', langCode);
     setIsOpen(false);
     
-    // Trigger Google Translate
-    const translateElement = document.querySelector('.goog-te-combo') as HTMLSelectElement;
-    if (translateElement) {
-      translateElement.value = langCode;
-      translateElement.dispatchEvent(new Event('change'));
-    }
+    // Function to trigger translation with retry
+    const triggerTranslation = () => {
+      const translateElement = document.querySelector('.goog-te-combo') as HTMLSelectElement;
+      if (translateElement) {
+        translateElement.value = langCode;
+        translateElement.dispatchEvent(new Event('change'));
+      } else if (isTranslateReady === false) {
+        setTimeout(triggerTranslation, 500);
+      }
+    };
+    
+    triggerTranslation();
   };
 
   const currentLanguage = LANGUAGES.find(l => l.code === currentLang);
