@@ -36,25 +36,39 @@ export default function ForgotPasswordPage() {
         return;
       }
 
-      // Generate token
-      const token = crypto.randomUUID ? crypto.randomUUID() : 
-                    Math.random().toString(36).substring(2) + Date.now().toString(36);
+      // ✅ FIXED: Generate token in the SAME format as your database
+      // Your database has tokens like: "c8cbp0qfd9ig6o99c7hfn"
+      // So use random string, NOT UUID
+      const generateToken = () => {
+        const part1 = Math.random().toString(36).substring(2, 10);
+        const part2 = Math.random().toString(36).substring(2, 10);
+        const timestamp = Date.now().toString(36);
+        return `${part1}${part2}${timestamp}`;
+      };
+      
+      const token = generateToken();
       
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 1);
 
-      // Save token
-      await supabase.from("password_reset_requests").insert({
+      // Save token to database
+      const { error: insertError } = await supabase.from("password_reset_requests").insert({
         user_id: profile.id,
         token: token,
         expires_at: expiresAt.toISOString(),
         used: false
       });
 
-      // FIX: Use the full URL with the correct path
+      if (insertError) {
+        console.error("Insert error:", insertError);
+        throw new Error("Failed to save reset request");
+      }
+
+      // Create reset link
       const resetLink = `${window.location.origin}/verify-password?token=${token}`;
       
-      console.log("Reset link being sent:", resetLink); // Debug log
+      console.log("🔗 Reset link being sent:", resetLink);
+      console.log("📝 Token being saved:", token);
       
       const response = await fetch('/api/auth/send-password-reset', {
         method: 'POST',

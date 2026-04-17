@@ -14,7 +14,10 @@ import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 function VerifyPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
+  const rawToken = searchParams.get('token');
+  
+  // ✅ Decode the token in case it's URL encoded
+  const token = rawToken ? decodeURIComponent(rawToken) : null;
   
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
@@ -26,7 +29,8 @@ function VerifyPasswordContent() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("Token from URL:", token); // Debug log
+    console.log("🔍 Raw token from URL:", rawToken);
+    console.log("🔍 Decoded token:", token);
     
     if (!token) {
       setError("Invalid or missing verification token");
@@ -36,24 +40,32 @@ function VerifyPasswordContent() {
 
     const verifyToken = async () => {
       try {
-        console.log("Verifying token:", token);
+        console.log("🔍 Verifying token in database:", token);
         
         const { data, error } = await supabase
           .from('password_reset_requests')
           .select('user_id, expires_at, used')
           .eq('token', token)
-          .single();
+          .maybeSingle();  // ✅ Changed from .single() to .maybeSingle() to avoid errors
 
-        console.log("Token verification result:", data, error);
+        console.log("🔍 Database result:", data);
+        console.log("🔍 Database error:", error);
 
-        if (error || !data) {
-          setError("Invalid verification token");
+        if (error) {
+          console.error("Database query error:", error);
+          setError("Error verifying token. Please try again.");
+          setVerifying(false);
+          return;
+        }
+
+        if (!data) {
+          setError("Invalid verification token. The link may be incorrect or already used.");
           setVerifying(false);
           return;
         }
 
         if (data.used) {
-          setError("This link has already been used");
+          setError("This link has already been used. Please request a new password reset.");
           setVerifying(false);
           return;
         }
@@ -61,7 +73,8 @@ function VerifyPasswordContent() {
         const expiresAt = new Date(data.expires_at);
         const now = new Date();
         
-        console.log("Expires at:", expiresAt, "Now:", now);
+        console.log("Expires at:", expiresAt);
+        console.log("Now:", now);
         
         if (expiresAt < now) {
           setError("This link has expired. Please request a new password change.");
@@ -75,13 +88,13 @@ function VerifyPasswordContent() {
         
       } catch (err) {
         console.error("Token verification error:", err);
-        setError("Failed to verify token");
+        setError("Failed to verify token. Please try again.");
         setVerifying(false);
       }
     };
 
     verifyToken();
-  }, [token]);
+  }, [token, rawToken]);
 
   const handleUpdatePassword = async () => {
     if (newPassword !== confirmPassword) {
