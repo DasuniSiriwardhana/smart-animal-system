@@ -16,6 +16,7 @@ export async function GET() {
         meal_time,
         meal_type,
         portion_size,
+        portion_unit,
         food_type,
         reminder_sent,
         pets!inner (
@@ -70,28 +71,36 @@ export async function GET() {
       const petName = petData.name;
 
       if (userEmail) {
-        const confirmUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/confirm-feeding?scheduleId=${schedule.id}`;
+        // ✅ FIXED: Link to confirmation PAGE (not API)
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pawhealth-xi.vercel.app';
+        const confirmUrl = `${baseUrl}/feeding-confirm?scheduleId=${schedule.id}&petName=${encodeURIComponent(petName)}`;
         
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: linear-gradient(135deg, #2f4454, #da7b93); padding: 20px; text-align: center;">
-              <h1 style="color: white;">Time to Feed ${petName}!</h1>
+              <h1 style="color: white;">🐾 Time to Feed ${petName}!</h1>
             </div>
             <div style="padding: 20px;">
               <p>Hello Pet Parent,</p>
               <p>It's time to feed <strong>${petName}</strong>!</p>
               <div style="background: #f5f0e8; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                <p><strong>Meal:</strong> ${schedule.meal_type}</p>
-                <p><strong>Time:</strong> ${schedule.meal_time}</p>
-                <p><strong>Portion:</strong> ${schedule.portion_size} grams</p>
-                <p><strong>Food Type:</strong> ${schedule.food_type}</p>
+                <p><strong>🍽️ Meal:</strong> ${schedule.meal_type}</p>
+                <p><strong>⏰ Time:</strong> ${schedule.meal_time}</p>
+                <p><strong>📦 Portion:</strong> ${schedule.portion_size} ${schedule.portion_unit || 'grams'}</p>
+                <p><strong>🥫 Food Type:</strong> ${schedule.food_type}</p>
               </div>
               <p style="text-align: center;">
-                <a href="${confirmUrl}" style="background: linear-gradient(135deg, #2f4454, #da7b93); color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Confirm Feeding</a>
+                <a href="${confirmUrl}" style="background: linear-gradient(135deg, #2f4454, #da7b93); color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">✅ Confirm Feeding</a>
               </p>
               <p style="font-size: 12px; color: #666; text-align: center; margin-top: 15px;">
+                After confirming, you'll be able to log the brand, product, and actual portion eaten.
+              </p>
+              <p style="font-size: 10px; color: #999; text-align: center;">
                 If the button doesn't work, copy this link: ${confirmUrl}
               </p>
+            </div>
+            <div style="background: #f5f0e8; padding: 10px; text-align: center; font-size: 10px; color: #999;">
+              <p>Smart Animal System - PawHealth Association</p>
             </div>
           </div>
         `;
@@ -100,7 +109,7 @@ export async function GET() {
           await transporter.sendMail({
             from: `"Smart Animal System" <${process.env.EMAIL_USER}>`,
             to: userEmail,
-            subject: `Feeding Reminder: Time to feed ${petName}`,
+            subject: `🐾 Feeding Reminder: Time to feed ${petName}`,
             html: emailHtml,
           });
 
@@ -113,9 +122,9 @@ export async function GET() {
             .eq('id', schedule.id);
 
           remindersSent++;
-          console.log(`Sent reminder to ${userEmail} for ${petName}`);
+          console.log(`✅ Sent reminder to ${userEmail} for ${petName}`);
         } catch (emailError) {
-          console.error(`Failed to send email to ${userEmail}:`, emailError);
+          console.error(`❌ Failed to send email to ${userEmail}:`, emailError);
         }
       } else {
         console.log(`No email found for user ${petData.user_id}`);
