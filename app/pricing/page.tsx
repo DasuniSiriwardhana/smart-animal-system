@@ -170,10 +170,16 @@ export default function PricingPage() {
   ];
 
   const fetchSubscription = useCallback(async () => {
+    // Only fetch subscription if user is logged in
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    
     const { data, error } = await supabase
       .from('subscriptions')
       .select('*')
-      .eq('user_id', user?.id)
+      .eq('user_id', user.id)
       .eq('status', 'active')
       .maybeSingle();
 
@@ -184,10 +190,13 @@ export default function PricingPage() {
   }, [user]);
 
   const fetchInvoices = useCallback(async () => {
+    // Only fetch invoices if user is logged in
+    if (!user?.id) return;
+    
     const { data, error } = await supabase
       .from('invoices')
       .select('*')
-      .eq('user_id', user?.id)
+      .eq('user_id', user.id)
       .order('invoice_date', { ascending: false });
 
     if (data && !error) {
@@ -196,15 +205,19 @@ export default function PricingPage() {
   }, [user]);
 
   useEffect(() => {
+    // REMOVED the redirect to login - pricing page should be visible to everyone
+    // Only fetch user-specific data if user is logged in
+    fetchSubscription();
+    fetchInvoices();
+  }, [user, fetchSubscription, fetchInvoices]);
+
+  const handleSubscribe = async (planId: string, price: number) => {
+    // Redirect to login if user is not authenticated
     if (!user) {
       router.push('/login');
       return;
     }
-    fetchSubscription();
-    fetchInvoices();
-  }, [user, router, fetchSubscription, fetchInvoices]);
-
-  const handleSubscribe = async (planId: string, price: number) => {
+    
     if (currentSubscription?.plan_type === planId) {
       setError(`You are already on the ${planId} plan`);
       return;
@@ -354,8 +367,8 @@ export default function PricingPage() {
           </p>
         </div>
 
-        {/* Current Subscription Status */}
-        {currentSubscription && currentSubscription.status === 'active' && (
+        {/* Current Subscription Status - Only show if user is logged in and has active subscription */}
+        {user && currentSubscription && currentSubscription.status === 'active' && (
           <div className="mb-8">
             <Card className="border-green-200 bg-green-50">
               <CardContent className="pt-6">
@@ -431,8 +444,8 @@ export default function PricingPage() {
           {plans.map((plan) => {
             const Icon = plan.icon;
             const price = billingInterval === 'month' ? plan.price.month : plan.price.year;
-            const isActive = isCurrentPlan(plan.id);
-            const isDisabled = currentSubscription?.status === 'active' && !isActive;
+            const isActive = user ? isCurrentPlan(plan.id) : false;
+            const isDisabled = user && currentSubscription?.status === 'active' && !isActive;
 
             return (
               <Card key={plan.id} className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
@@ -487,7 +500,13 @@ export default function PricingPage() {
                     )}
                   </ul>
 
-                  {isActive ? (
+                  {!user ? (
+                    <Link href="/signup">
+                      <Button className="w-full bg-gradient-to-r from-primary to-accent text-white">
+                        Sign Up to Subscribe
+                      </Button>
+                    </Link>
+                  ) : isActive ? (
                     <Button className="w-full bg-green-600 hover:bg-green-700" disabled>
                       Current Plan
                     </Button>
@@ -578,8 +597,8 @@ export default function PricingPage() {
           </Card>
         )}
 
-        {/* Invoices Section */}
-        {invoices.length > 0 && (
+        {/* Invoices Section - Only show if user is logged in and has invoices */}
+        {user && invoices.length > 0 && (
           <div className="mt-12">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <FileText className="h-5 w-5" />
