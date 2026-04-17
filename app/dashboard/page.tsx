@@ -975,7 +975,7 @@ export default function DashboardPage() {
           
           <DataView
             data={pets}
-            viewMode="grid"
+           
             showFilters={true}
             showSearch={true}
             itemsPerPage={8}
