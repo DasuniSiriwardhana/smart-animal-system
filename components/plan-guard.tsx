@@ -17,7 +17,7 @@ type PlanGuardProps = {
 export function PlanGuard({ 
   children, 
   requiredFeature, 
-  showUpgradePrompt = true,
+  showUpgradePrompt = true, 
   fallbackMessage 
 }: PlanGuardProps) {
   const { user, isLoading } = useAuth();

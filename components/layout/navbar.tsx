@@ -281,7 +281,7 @@ export function Navbar() {
                     Sign In
                   </Button>
                 </Link>
-              </div>
+              </div> 
             )}
           </div>
         )}
