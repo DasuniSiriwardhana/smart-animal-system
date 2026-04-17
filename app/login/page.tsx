@@ -64,7 +64,7 @@ export default function SignInPage() {
           <Input
             id="email"
             type="email"
-            placeholder="admin@gmail.com"
+            placeholder="yourname@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -95,12 +95,7 @@ export default function SignInPage() {
           Sign In
         </Button>
 
-        <p className="text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-primary hover:underline">
-            Sign up
-          </Link>
-        </p>
+        
       </form>
     </AuthLayout>
   );
