@@ -86,43 +86,58 @@ function UpgradePageContent() {
     setError("");
     
     try {
-      const startDate = new Date().toISOString().split('T')[0];
-      const endDate = billingCycle === "yearly" 
-        ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const startDate = new Date();
+      const endDate = new Date(startDate);
       
+      if (billingCycle === "yearly") {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      } else {
+        endDate.setMonth(endDate.getMonth() + 1);
+      }
+      
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
+      // ============================================
+      // STEP 1: Handle subscription (UPDATE or INSERT)
+      // ============================================
       let subscriptionId = null;
       
       const { data: existingSub } = await supabase
         .from("subscriptions")
-        .select("id")
+        .select("id, plan_type, status")
         .eq("user_id", user?.id)
+        .eq("status", "active")
         .maybeSingle();
 
       if (existingSub) {
+        // ✅ UPDATE existing subscription instead of creating new one
         const { data, error } = await supabase
           .from("subscriptions")
           .update({
             plan_type: selectedPlan,
             status: "active",
-            start_date: startDate,
-            end_date: endDate,
+            start_date: startDateStr,
+            end_date: endDateStr,
             amount: amount,
+            updated_at: new Date().toISOString()
           })
           .eq("user_id", user?.id)
           .select();
         
         if (error) throw error;
         if (data && data[0]) subscriptionId = data[0].id;
+        
       } else {
+        // ✅ INSERT new subscription
         const { data, error } = await supabase
           .from("subscriptions")
           .insert({
             user_id: user?.id,
             plan_type: selectedPlan,
             status: "active",
-            start_date: startDate,
-            end_date: endDate,
+            start_date: startDateStr,
+            end_date: endDateStr,
             amount: amount,
             payment_method: "card",
           })
@@ -132,18 +147,28 @@ function UpgradePageContent() {
         if (data && data[0]) subscriptionId = data[0].id;
       }
       
-      await supabase
+      // ============================================
+      // STEP 2: Create invoice record
+      // ============================================
+      const { error: invoiceError } = await supabase
         .from("invoices")
         .insert({
           user_id: user?.id,
           amount: amount,
           status: "paid",
-          invoice_date: startDate,
+          invoice_date: startDateStr,
           plan_type: selectedPlan,
           billing_interval: billingCycle === "monthly" ? "month" : "year"
         });
 
-      // ✅ ONLY ADDITION: Insert payment record for revenue analytics
+      if (invoiceError) {
+        console.error('Invoice error:', invoiceError);
+        // Don't throw - subscription still works
+      }
+      
+      // ============================================
+      // STEP 3: Create payment record for analytics
+      // ============================================
       const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
       
       const { error: paymentError } = await supabase
@@ -155,24 +180,59 @@ function UpgradePageContent() {
           amount: amount,
           currency: 'LKR',
           billing_interval: billingCycle === "monthly" ? "month" : "year",
-          payment_date: startDate,
+          payment_date: startDateStr,
           payment_method: 'card',
           status: 'completed',
           transaction_id: transactionId
         });
 
       if (paymentError) {
-        console.error('Error saving payment record:', paymentError);
+        console.error('Payment record error:', paymentError);
         // Don't throw - subscription still works
       }
       
-      await supabase
+      // ============================================
+      // STEP 4: Update profile plan
+      // ============================================
+      const { error: profileError } = await supabase
         .from('profiles')
-        .update({ plan: selectedPlan })
+        .update({ 
+          plan: selectedPlan,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', user?.id);
 
+      if (profileError) throw profileError;
+      
+      // ============================================
+      // STEP 5: Send receipt email
+      // ============================================
+      try {
+        await fetch('/api/send-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: user?.email,
+            plan: selectedPlan,
+            amount: amount,
+            interval: billingCycle === "monthly" ? "month" : "year",
+            date: startDateStr,
+          }),
+        });
+      } catch (emailError) {
+        console.error('Email error:', emailError);
+        // Don't throw - upgrade still works
+      }
+      
+      // ============================================
+      // STEP 6: Refresh user context and redirect
+      // ============================================
       await refreshUser();
-      router.push("/dashboard?upgrade=success");
+      
+      // Small delay to ensure refresh completes
+      setTimeout(() => {
+        router.push("/dashboard?upgrade=success");
+      }, 500);
       
     } catch (err) {
       console.error("Upgrade error:", err);
@@ -199,6 +259,7 @@ function UpgradePageContent() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
+          {/* Plan Selection */}
           <div>
             <Card>
               <CardHeader>
@@ -207,6 +268,7 @@ function UpgradePageContent() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <RadioGroup value={selectedPlan} onValueChange={(v) => setSelectedPlan(v as "standard" | "premium")}>
+                  {/* Standard Plan */}
                   <div className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer transition-all ${selectedPlan === "standard" ? "border-primary bg-primary/5" : "hover:border-primary/50"}`}>
                     <RadioGroupItem value="standard" id="standard" />
                     <Label htmlFor="standard" className="flex-1 cursor-pointer">
@@ -214,7 +276,7 @@ function UpgradePageContent() {
                         <div>
                           <div className="font-semibold text-lg">Standard Plan</div>
                           <div className="text-2xl font-bold mt-1">
-                            LKR {plan.price.toLocaleString()}
+                            LKR {PLAN_DETAILS.standard.price.toLocaleString()}
                             <span className="text-sm font-normal text-muted-foreground">/month</span>
                           </div>
                         </div>
@@ -222,6 +284,7 @@ function UpgradePageContent() {
                     </Label>
                   </div>
                   
+                  {/* Premium Plan */}
                   <div className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer transition-all ${selectedPlan === "premium" ? "border-primary bg-primary/5" : "hover:border-primary/50"}`}>
                     <RadioGroupItem value="premium" id="premium" />
                     <Label htmlFor="premium" className="flex-1 cursor-pointer">
@@ -244,6 +307,7 @@ function UpgradePageContent() {
                   </div>
                 </RadioGroup>
 
+                {/* Billing Cycle Toggle */}
                 <div className="flex gap-4 mt-4">
                   <Button
                     variant={billingCycle === "monthly" ? "default" : "outline"}
@@ -266,6 +330,7 @@ function UpgradePageContent() {
               </CardContent>
             </Card>
 
+            {/* Features Card */}
             <Card className="mt-4">
               <CardHeader>
                 <CardTitle>What&apos;s Included</CardTitle>
@@ -283,6 +348,7 @@ function UpgradePageContent() {
             </Card>
           </div>
 
+          {/* Payment Form */}
           <div>
             <Card>
               <CardHeader>
