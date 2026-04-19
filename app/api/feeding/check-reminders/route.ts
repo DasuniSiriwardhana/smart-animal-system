@@ -5,7 +5,7 @@ import nodemailer from 'nodemailer';
 export async function GET() {
   try {
     const now = new Date();
-    const currentTime = now.toTimeString().slice(0, 5);
+    const currentTime = now.toTimeString().slice(0, 8);  // Returns "07:52:30"
     
     console.log("Checking reminders at:", currentTime);
     
@@ -29,7 +29,7 @@ export async function GET() {
       .eq('reminder_sent', false)
       .eq('confirmed', false)
       .eq('skipped', false)
-      .lte('meal_time', currentTime);
+      .lte('meal_time', currentTime);  // Now compares "07:52:30" with "07:48:25.748127"
 
     if (error) {
       console.error("Supabase error:", error);
@@ -71,8 +71,7 @@ export async function GET() {
       const petName = petData.name;
 
       if (userEmail) {
-        // ✅ FIXED: Link to confirmation PAGE (not API)
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pawhealth-xi.vercel.app';
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
         const confirmUrl = `${baseUrl}/feeding-confirm?scheduleId=${schedule.id}&petName=${encodeURIComponent(petName)}`;
         
         const emailHtml = `
@@ -109,7 +108,7 @@ export async function GET() {
           await transporter.sendMail({
             from: `"Smart Animal System" <${process.env.EMAIL_USER}>`,
             to: userEmail,
-            subject: `🐾 Feeding Reminder: Time to feed ${petName}`,
+            subject: ` Feeding Reminder: Time to feed ${petName}`,
             html: emailHtml,
           });
 
@@ -122,9 +121,9 @@ export async function GET() {
             .eq('id', schedule.id);
 
           remindersSent++;
-          console.log(`✅ Sent reminder to ${userEmail} for ${petName}`);
+          console.log(` Sent reminder to ${userEmail} for ${petName}`);
         } catch (emailError) {
-          console.error(`❌ Failed to send email to ${userEmail}:`, emailError);
+          console.error(` Failed to send email to ${userEmail}:`, emailError);
         }
       } else {
         console.log(`No email found for user ${petData.user_id}`);
