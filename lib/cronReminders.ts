@@ -7,7 +7,7 @@ export function startReminderCron() {
     const { data: schedules } = await supabase
       .from('feeding_schedules')
       .select('id, user_id, pet_id, meal_time')
-      .lte('meal_time', new Date(new Date().getTime() + 10 * 60 * 1000)) // 10 min ahead
+      .lte('meal_time', new Date(new Date().getTime() + 10 * 60 * 1000))
       .eq('reminder_sent', false);
 
     if (!schedules) return;
