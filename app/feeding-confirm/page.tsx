@@ -7,10 +7,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { supabase } from '@/lib/supabaseClient';
 import { Loader2, CheckCircle, AlertCircle, PawPrint } from 'lucide-react';
 
-// Define proper type for schedule details
 type ScheduleDetails = {
   meal_type: string;
   portion_size: number;
@@ -18,7 +16,6 @@ type ScheduleDetails = {
   food_type: string;
 };
 
-// This component uses useSearchParams - it MUST be wrapped in Suspense
 function FeedingConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -44,14 +41,10 @@ function FeedingConfirmContent() {
 
   const fetchScheduleDetails = async () => {
     try {
-      const { data, error } = await supabase
-        .from('feeding_schedules')
-        .select('meal_type, portion_size, portion_unit, food_type')
-        .eq('id', scheduleId)
-        .single();
-      
-      if (data) {
-        setScheduleDetails(data as ScheduleDetails);
+      const response = await fetch(`/api/feeding/schedule-details?scheduleId=${scheduleId}`);
+      const data = await response.json();
+      if (data.success) {
+        setScheduleDetails(data.schedule);
       }
     } catch (err) {
       console.error('Error fetching schedule:', err);
@@ -86,7 +79,7 @@ function FeedingConfirmContent() {
       if (response.ok) {
         setSuccess(true);
         setTimeout(() => {
-          router.push('/dashboard');
+          window.location.href = '/dashboard';
         }, 3000);
       } else {
         setError(data.error || 'Failed to confirm feeding');
@@ -108,7 +101,7 @@ function FeedingConfirmContent() {
               <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
               <p className="text-red-600 font-medium">Invalid confirmation link</p>
               <p className="text-sm text-muted-foreground mt-2">The link may be broken or already used.</p>
-              <Button onClick={() => router.push('/dashboard')} className="mt-4">
+              <Button onClick={() => window.location.href = '/dashboard'} className="mt-4">
                 Go to Dashboard
               </Button>
             </CardContent>
@@ -219,7 +212,6 @@ function FeedingConfirmContent() {
   );
 }
 
-// Main export with Suspense boundary
 export default function FeedingConfirmPage() {
   return (
     <Suspense fallback={

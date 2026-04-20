@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: Request) {
   try {
@@ -8,27 +13,26 @@ export async function POST(request: Request) {
     
     console.log("Confirming feeding:", schedule_id);
     
-    // First get the schedule to get pet_id and meal_type
     const { data: schedule, error: fetchError } = await supabase
       .from('feeding_schedules')
       .select('*')
       .eq('id', schedule_id)
       .single();
 
-    if (fetchError) {
+    if (fetchError || !schedule) {
       console.error("Error fetching schedule:", fetchError);
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
+      return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
     }
     
-    // Update the feeding schedule
     const { error: updateError } = await supabase
       .from('feeding_schedules')
       .update({
         confirmed: true,
         confirmed_at: new Date().toISOString(),
-        actual_portion: actual_portion,
+        actual_portion: actual_portion || schedule.portion_size,
         food_brand: food_brand,
-        food_product: food_product
+        food_product: food_product,
+        reminder_sent: true
       })
       .eq('id', schedule_id);
 
@@ -37,7 +41,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    // Also create a record in feeding_logs
     await supabase
       .from('feeding_logs')
       .insert({
@@ -48,11 +51,13 @@ export async function POST(request: Request) {
         confirmed: true,
         food_brand: food_brand,
         food_product: food_product,
-        actual_portion: actual_portion,
+        actual_portion: actual_portion || schedule.portion_size,
         portion_unit: schedule.portion_unit
       });
 
+    console.log("✅ Feeding confirmed successfully");
     return NextResponse.json({ success: true });
+    
   } catch (error) {
     console.error('Error confirming feeding:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });

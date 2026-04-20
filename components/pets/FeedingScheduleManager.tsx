@@ -72,46 +72,43 @@ export function FeedingScheduleManager({ petId }: { petId: string }) {
 const saveSchedule = async () => {
   setSubmitting(true);
   try {
-    if (editingSchedule) {
-      const { error } = await supabase
-        .from("feeding_schedules")
-        .update({
-          meal_time: formData.meal_time,
-          meal_type: formData.meal_type,
-          food_type: formData.food_type,
-          portion_size: formData.portion_size,
-          portion_unit: formData.portion_unit,
-          instructions: formData.instructions || null,
-        })
-        .eq("id", editingSchedule.id);
-      
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from("feeding_schedules")
-        .insert({
-          pet_id: petId,
-          meal_time: formData.meal_time,
-          meal_type: formData.meal_type,
-          food_type: formData.food_type,
-          portion_size: formData.portion_size,
-          portion_unit: formData.portion_unit,
-          instructions: formData.instructions || null,
-          is_active: true,
-          confirmed: false,
-          skipped: false,
-          reminder_sent: false
-        });
-      
-      if (error) throw error;
-    }
+    const formattedTime = formData.meal_time;
+    
+    console.log("Attempting to insert schedule:", {
+      pet_id: petId,
+      meal_time: formattedTime,
+      meal_type: formData.meal_type,
+      food_type: formData.food_type,
+      portion_size: formData.portion_size
+    });
+    
+    const { data, error } = await supabase
+      .from("feeding_schedules")
+      .insert({
+        pet_id: petId,
+        meal_time: formattedTime,
+        meal_type: formData.meal_type,
+        food_type: formData.food_type,
+        portion_size: formData.portion_size,
+        portion_unit: formData.portion_unit,
+        instructions: formData.instructions || null,
+        is_active: true,
+        confirmed: false,
+        skipped: false,
+        reminder_sent: false
+      })
+      .select();
+    
+    console.log("Insert response:", { data, error });
+    
+    if (error) throw error;
     
     fetchSchedules();
     setIsDialogOpen(false);
     resetForm();
   } catch (error) {
     console.error("Error saving schedule:", error);
-    alert("Failed to save schedule");
+    alert("Failed to save schedule: " + (error as Error).message);
   } finally {
     setSubmitting(false);
   }
