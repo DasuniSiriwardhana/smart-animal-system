@@ -42,7 +42,6 @@ type Invoice = {
 
 type FeatureValue = string | boolean | number;
 
-// Feature categories and their details
 const featureCategories = [
   {
     id: 'pet-management',
@@ -170,7 +169,6 @@ export default function PricingPage() {
   ];
 
   const fetchSubscription = useCallback(async () => {
-    // Only fetch subscription if user is logged in
     if (!user?.id) {
       setLoading(false);
       return;
@@ -181,16 +179,18 @@ export default function PricingPage() {
       .select('*')
       .eq('user_id', user.id)
       .eq('status', 'active')
+      .order('created_at', { ascending: false })
       .maybeSingle();
 
     if (data && !error) {
       setCurrentSubscription(data as Subscription);
+    } else {
+      setCurrentSubscription(null);
     }
     setLoading(false);
   }, [user]);
 
   const fetchInvoices = useCallback(async () => {
-    // Only fetch invoices if user is logged in
     if (!user?.id) return;
     
     const { data, error } = await supabase
@@ -205,14 +205,11 @@ export default function PricingPage() {
   }, [user]);
 
   useEffect(() => {
-    // REMOVED the redirect to login - pricing page should be visible to everyone
-    // Only fetch user-specific data if user is logged in
     fetchSubscription();
     fetchInvoices();
   }, [user, fetchSubscription, fetchInvoices]);
 
-  const handleSubscribe = async (planId: string, price: number) => {
-    // Redirect to login if user is not authenticated
+  const handleSubscribe = (planId: string) => {
     if (!user) {
       router.push('/login');
       return;
@@ -223,101 +220,52 @@ export default function PricingPage() {
       return;
     }
 
-    setProcessing(planId);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const startDate = new Date();
-      const endDate = new Date();
-      
-      if (billingInterval === 'month') {
-        endDate.setMonth(endDate.getMonth() + 1);
-      } else {
-        endDate.setFullYear(endDate.getFullYear() + 1);
-      }
-
-      const { error: subError } = await supabase
-        .from('subscriptions')
-        .upsert({
-          user_id: user?.id,
-          plan_type: planId,
-          status: 'active',
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-          amount: price,
-          payment_method: 'card',
-        });
-
-      if (subError) throw subError;
-
-      const { error: invoiceError } = await supabase
-        .from('invoices')
-        .insert({
-          user_id: user?.id,
-          amount: price,
-          status: 'paid',
-          invoice_date: startDate.toISOString().split('T')[0],
-          plan_type: planId,
-          billing_interval: billingInterval,
-        });
-
-      if (invoiceError) throw invoiceError;
-
-      await supabase
-        .from('profiles')
-        .update({ plan: planId })
-        .eq('id', user?.id);
-
-      await refreshUser();
-      
-      setSuccess(`Successfully upgraded to ${planId} plan!`);
-      fetchSubscription();
-      fetchInvoices();
-
-      await fetch('/api/send-receipt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user?.email,
-          plan: planId,
-          amount: price,
-          interval: billingInterval,
-          date: startDate.toISOString(),
-        }),
-      });
-
-    } catch (err) {
-      console.error('Subscription error:', err);
-      setError('Failed to process subscription. Please try again.');
-    } finally {
-      setProcessing(null);
-    }
+    router.push(`/pricing/upgrade?plan=${planId}&cycle=${billingInterval}`);
   };
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Are you sure you want to cancel your subscription?')) return;
+    if (!confirm('Are you sure you want to cancel your subscription? You will lose access to premium features immediately, but your data will be preserved.')) {
+      return;
+    }
 
     setProcessing('cancel');
+    setError(null);
+    setSuccess(null);
+    
     try {
-      const { error } = await supabase
+      const { error: subError } = await supabase
         .from('subscriptions')
-        .update({ status: 'cancelled' })
+        .update({ 
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
         .eq('user_id', user?.id)
         .eq('status', 'active');
 
-      if (error) throw error;
+      if (subError) throw subError;
 
-      await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
-        .update({ plan: 'basic' })
+        .update({ 
+          plan: 'basic',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', user?.id);
 
+      if (profileError) throw profileError;
+
       await refreshUser();
-      fetchSubscription();
-      setSuccess('Subscription cancelled successfully');
-    } catch {
-      setError('Failed to cancel subscription');
+      await fetchSubscription();
+      
+      setSuccess('Your subscription has been cancelled. You are now on the Basic plan.');
+      
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
+      
+    } catch (err) {
+      console.error('Cancellation error:', err);
+      setError('Failed to cancel subscription. Please try again or contact support.');
     } finally {
       setProcessing(null);
     }
@@ -357,7 +305,6 @@ export default function PricingPage() {
       <Navbar />
       
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Choose the Perfect Plan for Your Pet
@@ -367,7 +314,17 @@ export default function PricingPage() {
           </p>
         </div>
 
-        {/* Current Subscription Status - Only show if user is logged in and has active subscription */}
+        {error && (
+          <Alert className="mb-6 bg-red-50 border-red-200">
+            <AlertDescription className="text-red-600">{error}</AlertDescription>
+          </Alert>
+        )}
+        {success && (
+          <Alert className="mb-6 bg-green-50 border-green-200">
+            <AlertDescription className="text-green-600">{success}</AlertDescription>
+          </Alert>
+        )}
+
         {user && currentSubscription && currentSubscription.status === 'active' && (
           <div className="mb-8">
             <Card className="border-green-200 bg-green-50">
@@ -401,45 +358,58 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* Billing Interval Toggle */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-white rounded-full p-1 shadow-md inline-flex">
-            <button
-              onClick={() => setBillingInterval('month')}
-              className={`px-6 py-2 rounded-full transition-all ${
-                billingInterval === 'month' 
-                  ? 'bg-primary text-white shadow-md' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingInterval('year')}
-              className={`px-6 py-2 rounded-full transition-all ${
-                billingInterval === 'year' 
-                  ? 'bg-primary text-white shadow-md' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              Yearly <span className="text-xs ml-1 text-green-600">Save 15%</span>
-            </button>
+        {user && !currentSubscription && (
+          <div className="mb-8">
+            <Card className="border-gray-200 bg-gray-50">
+              <CardContent className="pt-6">
+                <div className="flex flex-wrap justify-between items-center gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-gray-600" />
+                      <h2 className="text-lg font-semibold">Current Plan: Basic (Free)</h2>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      You are on the free Basic plan. Upgrade to access premium features.
+                    </p>
+                  </div>
+                  <Link href="/upgrade?plan=standard&cycle=monthly">
+                    <Button className="bg-gradient-to-r from-primary to-accent text-white">
+                      Upgrade Now
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-
-        {/* Error/Success Messages */}
-        {error && (
-          <Alert className="mb-6 bg-red-50 border-red-200">
-            <AlertDescription className="text-red-600">{error}</AlertDescription>
-          </Alert>
-        )}
-        {success && (
-          <Alert className="mb-6 bg-green-50 border-green-200">
-            <AlertDescription className="text-green-600">{success}</AlertDescription>
-          </Alert>
         )}
 
-        {/* Pricing Cards */}
+        {(!user || !currentSubscription) && (
+          <div className="flex justify-center mb-8">
+            <div className="bg-white rounded-full p-1 shadow-md inline-flex">
+              <button
+                onClick={() => setBillingInterval('month')}
+                className={`px-6 py-2 rounded-full transition-all ${
+                  billingInterval === 'month' 
+                    ? 'bg-primary text-white shadow-md' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBillingInterval('year')}
+                className={`px-6 py-2 rounded-full transition-all ${
+                  billingInterval === 'year' 
+                    ? 'bg-primary text-white shadow-md' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Yearly <span className="text-xs ml-1 text-green-600">Save 15%</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           {plans.map((plan) => {
             const Icon = plan.icon;
@@ -516,7 +486,7 @@ export default function PricingPage() {
                     </Button>
                   ) : (
                     <Button
-                      onClick={() => handleSubscribe(plan.id, price)}
+                      onClick={() => handleSubscribe(plan.id)}
                       disabled={processing === plan.id}
                       className={`w-full ${plan.buttonColor} text-white`}
                     >
@@ -534,7 +504,6 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* Feature Comparison Button - More Visible */}
         <div className="text-center mb-8">
           <Button
             onClick={() => setShowFeatureTable(!showFeatureTable)}
@@ -553,7 +522,6 @@ export default function PricingPage() {
           </Button>
         </div>
 
-        {/* Feature Comparison Table */}
         {showFeatureTable && (
           <Card className="overflow-hidden shadow-lg">
             <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10">
@@ -597,7 +565,6 @@ export default function PricingPage() {
           </Card>
         )}
 
-        {/* Invoices Section - Only show if user is logged in and has invoices */}
         {user && invoices.length > 0 && (
           <div className="mt-12">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -642,7 +609,6 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* FAQ Section */}
         <div className="mt-12 text-center">
           <p className="text-sm text-muted-foreground">
             Need help choosing? <Link href="/contact" className="text-primary hover:underline">Contact our support team</Link>

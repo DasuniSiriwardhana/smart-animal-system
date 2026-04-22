@@ -14,6 +14,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import { 
   PawPrint, 
@@ -42,8 +43,8 @@ export function Navbar() {
   const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [supportDropdownOpen, setSupportDropdownOpen] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [isSupportMenuOpen, setIsSupportMenuOpen] = useState(false)
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -66,6 +67,7 @@ export function Navbar() {
 
   const handleLogout = async () => {
     try {
+      setIsUserMenuOpen(false)
       await signOut()
       router.push('/login')
       router.refresh()
@@ -142,26 +144,28 @@ export function Navbar() {
             
             {/* Support Dropdown - only for non-admin users */}
             {!isAdmin && (
-              <DropdownMenu open={supportDropdownOpen} onOpenChange={setSupportDropdownOpen}>
+              <DropdownMenu open={isSupportMenuOpen} onOpenChange={setIsSupportMenuOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1">
                     Support
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-48">
-                  {supportItems.map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <DropdownMenuItem key={item.href} asChild onClick={() => setSupportDropdownOpen(false)}>
-                        <Link href={item.href} className="flex items-center gap-2 cursor-pointer">
-                          <Icon className="h-4 w-4" />
-                          {item.label}
-                        </Link>
-                      </DropdownMenuItem>
-                    )
-                  })}
-                </DropdownMenuContent>
+                <DropdownMenuPortal>
+                  <DropdownMenuContent align="center" className="w-48">
+                    {supportItems.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <DropdownMenuItem key={item.href} asChild onClick={() => setIsSupportMenuOpen(false)}>
+                          <Link href={item.href} className="flex items-center gap-2 cursor-pointer">
+                            <Icon className="h-4 w-4" />
+                            {item.label}
+                          </Link>
+                        </DropdownMenuItem>
+                      )
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenuPortal>
               </DropdownMenu>
             )}
           </div>
@@ -172,54 +176,63 @@ export function Navbar() {
             <LanguageSwitcher />
             
             {user ? (
-              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-                <DropdownMenuTrigger asChild>
-                  <div className="flex items-center gap-2 cursor-pointer hover:opacity-80">
-                    <Avatar className="h-8 w-8 ring-2 ring-accent/20">
-                      <AvatarImage src={user?.avatar_url || ''} />
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-sm">
-                        {getInitials(user.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="hidden lg:inline-block text-sm font-medium">
-                      {user.name || user.email?.split('@')[0]}
-                    </span>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{user.name || user.email}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 focus:outline-none"
+                >
+                  <Avatar className="h-8 w-8 ring-2 ring-accent/20">
+                    <AvatarImage src={user?.avatar_url || ''} />
+                    <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-sm">
+                      {getInitials(user.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden lg:inline-block text-sm font-medium">
+                    {user.name || user.email?.split('@')[0]}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </button>
+                
+                {isUserMenuOpen && (
+                  <>
+                    {/* Backdrop to close when clicking outside */}
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setIsUserMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-md shadow-lg border z-50 py-1">
+                      <div className="px-4 py-3 border-b dark:border-gray-700">
+                        <p className="text-sm font-medium">{user.name || user.email}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                      <Link 
+                        href="/profile" 
+                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <User className="h-4 w-4" />
+                        Profile
+                      </Link>
+                      <Link 
+                        href="/settings" 
+                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <Settings className="h-4 w-4" />
+                        Settings
+                      </Link>
+                      <div className="border-t dark:border-gray-700 my-1"></div>
+                      <button 
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-4 py-2 w-full text-left text-red-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Logout
+                      </button>
                     </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild onClick={() => setDropdownOpen(false)}>
-                    <Link href="/profile" className="cursor-pointer">
-                      <User className="mr-2 h-4 w-4" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild onClick={() => setDropdownOpen(false)}>
-                    <Link href="/settings" className="cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => {
-                      setDropdownOpen(false)
-                      handleLogout()
-                    }} 
-                    className="text-red-600 cursor-pointer"
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </>
+                )}
+              </div>
             ) : (
               <>
                 <Link href="/login">

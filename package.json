@@ -17,6 +17,7 @@
     "@supabase/auth-helpers-nextjs": "^0.14.0",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.103.0",
+    "@universal-i18n/react": "^3.0.5",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

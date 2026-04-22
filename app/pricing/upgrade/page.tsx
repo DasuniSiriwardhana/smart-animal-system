@@ -19,32 +19,61 @@ const PLAN_DETAILS = {
   standard: {
     id: "standard",
     name: "Standard Plan",
-    price: 1500,
-    priceYearly: 14400,
+    price: 2499,
+    priceYearly: 11999,
     features: [
       "Up to 10 pets",
       "AI Insights & predictions",
       "Advanced analytics",
       "10GB document storage",
       "Priority support",
-      "Vet chat consultations",
     ],
   },
   premium: {
     id: "premium",
     name: "Premium Plan",
-    price: 3500,
-    priceYearly: 33600,
+    price: 4999,
+    priceYearly: 23999,
     features: [
       "Unlimited pets",
       "Everything in Standard",
-      "Video vet consultations",
+      "Real-time sensor data",
+      "LSTM health predictions",
+      "AI disease detection",
       "50GB document storage",
-      "24/7 phone support",
-      "Multiple users per account",
-      "API access",
+      "24/7 priority support",
     ],
   },
+};
+
+// Helper functions for card formatting
+const formatCardNumber = (value: string) => {
+  const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+  const matches = v.match(/\d{4,16}/g);
+  const match = (matches && matches[0]) || '';
+  const parts = [];
+
+  for (let i = 0, len = match.length; i < len; i += 4) {
+    parts.push(match.substring(i, i + 4));
+  }
+
+  if (parts.length) {
+    return parts.join(' ');
+  } else {
+    return value;
+  }
+};
+
+const formatExpiryDate = (value: string) => {
+  const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+  if (v.length >= 2) {
+    return v.slice(0, 2) + (v.length > 2 ? '/' + v.slice(2, 4) : '');
+  }
+  return v;
+};
+
+const formatCVV = (value: string) => {
+  return value.replace(/\s+/g, '').replace(/[^0-9]/gi, '').slice(0, 4);
 };
 
 export const dynamic = 'force-dynamic';
@@ -76,9 +105,41 @@ function UpgradePageContent() {
     }
   }, [user, selectedPlan, router]);
 
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCardNumber(e.target.value);
+    setCardNumber(formatted);
+  };
+
+  const handleExpiryDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatExpiryDate(e.target.value);
+    setExpiryDate(formatted);
+  };
+
+  const handleCVVChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCVV(e.target.value);
+    setCvv(formatted);
+  };
+
   const handleSubscribe = async () => {
-    if (!cardName || !cardNumber || !expiryDate || !cvv) {
-      setError("Please fill in all card details");
+    // Validate card details
+    const cleanCardNumber = cardNumber.replace(/\s/g, '');
+    if (!cardName || cleanCardNumber.length < 16 || !expiryDate || !cvv) {
+      setError("Please fill in all card details correctly");
+      return;
+    }
+
+    // Validate expiry date
+    const [month, year] = expiryDate.split('/');
+    const currentYear = new Date().getFullYear() % 100;
+    const currentMonth = new Date().getMonth() + 1;
+    
+    if (parseInt(month) < 1 || parseInt(month) > 12) {
+      setError("Invalid expiry month");
+      return;
+    }
+    
+    if (parseInt(year) < currentYear || (parseInt(year) === currentYear && parseInt(month) < currentMonth)) {
+      setError("Card has expired");
       return;
     }
 
@@ -98,9 +159,6 @@ function UpgradePageContent() {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
       
-      // ============================================
-      // STEP 1: Handle subscription (UPDATE or INSERT)
-      // ============================================
       let subscriptionId = null;
       
       const { data: existingSub } = await supabase
@@ -111,7 +169,6 @@ function UpgradePageContent() {
         .maybeSingle();
 
       if (existingSub) {
-        //  UPDATE existing subscription instead of creating new one
         const { data, error } = await supabase
           .from("subscriptions")
           .update({
@@ -127,9 +184,7 @@ function UpgradePageContent() {
         
         if (error) throw error;
         if (data && data[0]) subscriptionId = data[0].id;
-        
       } else {
-        //  INSERT new subscription
         const { data, error } = await supabase
           .from("subscriptions")
           .insert({
@@ -147,10 +202,7 @@ function UpgradePageContent() {
         if (data && data[0]) subscriptionId = data[0].id;
       }
       
-      // ============================================
-      // STEP 2: Create invoice record
-      // ============================================
-      const { error: invoiceError } = await supabase
+      await supabase
         .from("invoices")
         .insert({
           user_id: user?.id,
@@ -161,17 +213,9 @@ function UpgradePageContent() {
           billing_interval: billingCycle === "monthly" ? "month" : "year"
         });
 
-      if (invoiceError) {
-        console.error('Invoice error:', invoiceError);
-        // Don't throw - subscription still works
-      }
-      
-      // ============================================
-      // STEP 3: Create payment record for analytics
-      // ============================================
       const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
       
-      const { error: paymentError } = await supabase
+      await supabase
         .from('subscription_payments')
         .insert({
           user_id: user?.id,
@@ -186,14 +230,6 @@ function UpgradePageContent() {
           transaction_id: transactionId
         });
 
-      if (paymentError) {
-        console.error('Payment record error:', paymentError);
-        // Don't throw - subscription still works
-      }
-      
-      // ============================================
-      // STEP 4: Update profile plan
-      // ============================================
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
@@ -204,32 +240,8 @@ function UpgradePageContent() {
 
       if (profileError) throw profileError;
       
-      // ============================================
-      // STEP 5: Send receipt email
-      // ============================================
-      try {
-        await fetch('/api/send-receipt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: user?.email,
-            plan: selectedPlan,
-            amount: amount,
-            interval: billingCycle === "monthly" ? "month" : "year",
-            date: startDateStr,
-          }),
-        });
-      } catch (emailError) {
-        console.error('Email error:', emailError);
-        // Don't throw - upgrade still works
-      }
-      
-      // ============================================
-      // STEP 6: Refresh user context and redirect
-      // ============================================
       await refreshUser();
       
-      // Small delay to ensure refresh completes
       setTimeout(() => {
         router.push("/dashboard?upgrade=success");
       }, 500);
@@ -268,46 +280,39 @@ function UpgradePageContent() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <RadioGroup value={selectedPlan} onValueChange={(v) => setSelectedPlan(v as "standard" | "premium")}>
-                  {/* Standard Plan */}
                   <div className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer transition-all ${selectedPlan === "standard" ? "border-primary bg-primary/5" : "hover:border-primary/50"}`}>
                     <RadioGroupItem value="standard" id="standard" />
                     <Label htmlFor="standard" className="flex-1 cursor-pointer">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-semibold text-lg">Standard Plan</div>
-                          <div className="text-2xl font-bold mt-1">
-                            LKR {PLAN_DETAILS.standard.price.toLocaleString()}
-                            <span className="text-sm font-normal text-muted-foreground">/month</span>
-                          </div>
+                      <div>
+                        <div className="font-semibold text-lg">Standard Plan</div>
+                        <div className="text-2xl font-bold mt-1">
+                          LKR {PLAN_DETAILS.standard.price.toLocaleString()}
+                          <span className="text-sm font-normal text-muted-foreground">/month</span>
                         </div>
                       </div>
                     </Label>
                   </div>
                   
-                  {/* Premium Plan */}
                   <div className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer transition-all ${selectedPlan === "premium" ? "border-primary bg-primary/5" : "hover:border-primary/50"}`}>
                     <RadioGroupItem value="premium" id="premium" />
                     <Label htmlFor="premium" className="flex-1 cursor-pointer">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-semibold text-lg flex items-center gap-2">
-                            Premium Plan
-                            <Badge variant="default" className="bg-gradient-to-r from-primary to-accent">
-                              <Sparkles className="h-3 w-3 mr-1" />
-                              Best Value
-                            </Badge>
-                          </div>
-                          <div className="text-2xl font-bold mt-1">
-                            LKR {PLAN_DETAILS.premium.price.toLocaleString()}
-                            <span className="text-sm font-normal text-muted-foreground">/month</span>
-                          </div>
+                      <div>
+                        <div className="font-semibold text-lg flex items-center gap-2">
+                          Premium Plan
+                          <Badge variant="default" className="bg-gradient-to-r from-primary to-accent">
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            Best Value
+                          </Badge>
+                        </div>
+                        <div className="text-2xl font-bold mt-1">
+                          LKR {PLAN_DETAILS.premium.price.toLocaleString()}
+                          <span className="text-sm font-normal text-muted-foreground">/month</span>
                         </div>
                       </div>
                     </Label>
                   </div>
                 </RadioGroup>
 
-                {/* Billing Cycle Toggle */}
                 <div className="flex gap-4 mt-4">
                   <Button
                     variant={billingCycle === "monthly" ? "default" : "outline"}
@@ -330,7 +335,6 @@ function UpgradePageContent() {
               </CardContent>
             </Card>
 
-            {/* Features Card */}
             <Card className="mt-4">
               <CardHeader>
                 <CardTitle>What&apos;s Included</CardTitle>
@@ -377,26 +381,30 @@ function UpgradePageContent() {
                 <div className="space-y-2">
                   <Label>Cardholder Name</Label>
                   <Input 
-                    placeholder="David Warner"
+                    placeholder="Card Holder Name "
                     value={cardName}
-                    onChange={(e) => setCardName(e.target.value)}
+                    onChange={(e) => setCardName(e.target.value.toUpperCase())}
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label>Card Number</Label>
                   <Input 
                     placeholder="1234 5678 9012 3456"
                     value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value)}
+                    onChange={handleCardNumberChange}
+                    maxLength={19}
                   />
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Expiry Date</Label>
                     <Input 
                       placeholder="MM/YY"
                       value={expiryDate}
-                      onChange={(e) => setExpiryDate(e.target.value)}
+                      onChange={handleExpiryDateChange}
+                      maxLength={5}
                     />
                   </div>
                   <div className="space-y-2">
@@ -405,7 +413,8 @@ function UpgradePageContent() {
                       type="password"
                       placeholder="123"
                       value={cvv}
-                      onChange={(e) => setCvv(e.target.value)}
+                      onChange={handleCVVChange}
+                      maxLength={4}
                     />
                   </div>
                 </div>
