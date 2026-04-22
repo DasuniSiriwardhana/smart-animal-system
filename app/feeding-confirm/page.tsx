@@ -1,13 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Navbar } from '@/components/layout/navbar';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, CheckCircle, AlertCircle, PawPrint } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 
 type ScheduleDetails = {
   meal_type: string;
@@ -16,45 +10,36 @@ type ScheduleDetails = {
   food_type: string;
 };
 
-function FeedingConfirmContent() {
-  const router = useRouter();
+function ConfirmForm() {
   const searchParams = useSearchParams();
   const scheduleId = searchParams.get('scheduleId');
   const petName = searchParams.get('petName') || 'your pet';
   
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [success, setSuccess] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const [brand, setBrand] = useState<string>('');
+  const [product, setProduct] = useState<string>('');
+  const [actualPortion, setActualPortion] = useState<string>('');
   const [scheduleDetails, setScheduleDetails] = useState<ScheduleDetails | null>(null);
-  
-  const [formData, setFormData] = useState({
-    brand: '',
-    product: '',
-    actualPortion: ''
-  });
 
   useEffect(() => {
     if (scheduleId) {
-      fetchScheduleDetails();
+      fetch(`/api/feeding/schedule-details?scheduleId=${scheduleId}`)
+        .then(res => res.json())
+        .then((data: { success: boolean; schedule: ScheduleDetails }) => {
+          if (data.success) {
+            setScheduleDetails(data.schedule);
+          }
+        })
+        .catch(console.error);
     }
   }, [scheduleId]);
-
-  const fetchScheduleDetails = async () => {
-    try {
-      const response = await fetch(`/api/feeding/schedule-details?scheduleId=${scheduleId}`);
-      const data = await response.json();
-      if (data.success) {
-        setScheduleDetails(data.schedule);
-      }
-    } catch (err) {
-      console.error('Error fetching schedule:', err);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.brand || !formData.product || !formData.actualPortion) {
+    if (!brand || !product || !actualPortion) {
       setError('Please fill in all fields');
       return;
     }
@@ -68,20 +53,19 @@ function FeedingConfirmContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           schedule_id: scheduleId,
-          food_brand: formData.brand,
-          food_product: formData.product,
-          actual_portion: parseFloat(formData.actualPortion)
+          food_brand: brand,
+          food_product: product,
+          actual_portion: parseFloat(actualPortion)
         })
       });
-      
-      const data = await response.json();
       
       if (response.ok) {
         setSuccess(true);
         setTimeout(() => {
-          window.location.href = '/dashboard';
+          window.location.href = '/';
         }, 3000);
       } else {
+        const data = await response.json() as { error: string };
         setError(data.error || 'Failed to confirm feeding');
       }
     } catch (err) {
@@ -93,120 +77,114 @@ function FeedingConfirmContent() {
 
   if (!scheduleId) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="container mx-auto px-4 py-16 max-w-md">
-          <Card>
-            <CardContent className="py-12 text-center">
-              <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
-              <p className="text-red-600 font-medium">Invalid confirmation link</p>
-              <p className="text-sm text-muted-foreground mt-2">The link may be broken or already used.</p>
-              <Button onClick={() => window.location.href = '/dashboard'} className="mt-4">
-                Go to Dashboard
-              </Button>
-            </CardContent>
-          </Card>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', fontFamily: 'Arial' }}>
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <h2>Invalid Link</h2>
+          <p>This confirmation link is invalid or has been used.</p>
+          <button onClick={() => window.location.href = '/'}>Go Home</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', fontFamily: 'Arial' }}>
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <h2 style={{ color: 'green' }}>Feeding Confirmed!</h2>
+          <p>Thank you for logging {petName}&apos;s meal.</p>
+          <p>Redirecting to home page...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <Navbar />
-      
-      <div className="container mx-auto px-4 py-16 max-w-md">
-        <Card>
-          <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <PawPrint className="h-8 w-8 text-primary" />
-            </div>
-            <CardTitle className="text-2xl">Confirm Feeding</CardTitle>
-            <CardDescription>
-              Log the details for {petName}&apos;s meal
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {success ? (
-              <div className="text-center space-y-4">
-                <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
-                <p className="text-green-600 font-medium text-lg">Feeding Confirmed!</p>
-                <p className="text-muted-foreground">Thank you for logging {petName}&apos;s meal.</p>
-                <p className="text-sm text-muted-foreground">Redirecting to dashboard...</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {error && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f5f0e8', fontFamily: 'Arial' }}>
+      <div style={{ maxWidth: '450px', width: '100%', margin: '20px', backgroundColor: 'white', borderRadius: '16px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '10px' }}>🐾</div>
+          <h1 style={{ color: '#2f4454', margin: '0 0 5px 0' }}>Confirm Feeding</h1>
+          <p style={{ color: '#666', marginBottom: '20px' }}>Log the details for {petName}&apos;s meal</p>
+        </div>
 
-                {scheduleDetails && (
-                  <div className="p-3 bg-primary/5 rounded-lg text-sm">
-                    <p className="font-medium mb-1">📋 Meal Details:</p>
-                    <p className="text-muted-foreground">
-                      {scheduleDetails.meal_type} • {scheduleDetails.portion_size} {scheduleDetails.portion_unit || 'grams'} • {scheduleDetails.food_type}
-                    </p>
-                  </div>
-                )}
-                
-                <div>
-                  <Label htmlFor="brand">Food Brand *</Label>
-                  <Input
-                    id="brand"
-                    placeholder="e.g., Whiskas, Pedigree, Royal Canin"
-                    value={formData.brand}
-                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                    required
-                    className="mt-1.5"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="product">Food Product *</Label>
-                  <Input
-                    id="product"
-                    placeholder="e.g., Tuna, Chicken, Adult Dry Food"
-                    value={formData.product}
-                    onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-                    required
-                    className="mt-1.5"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="actualPortion">Actual Portion Eaten *</Label>
-                  <div className="flex gap-2 mt-1.5">
-                    <Input
-                      id="actualPortion"
-                      type="number"
-                      step="10"
-                      placeholder="e.g., 150"
-                      value={formData.actualPortion}
-                      onChange={(e) => setFormData({ ...formData, actualPortion: e.target.value })}
-                      required
-                      className="flex-1"
-                    />
-                    <span className="inline-flex items-center px-3 text-sm text-muted-foreground bg-muted rounded-lg">
-                      {scheduleDetails?.portion_unit || 'grams'}
-                    </span>
-                  </div>
-                </div>
-                
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  {loading ? 'Confirming...' : '✅ Confirm Feeding'}
-                </Button>
-                
-                <p className="text-xs text-muted-foreground text-center">
-                  This will record the feeding and update your pet&apos;s feeding history.
-                </p>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+        {error && (
+          <div style={{ backgroundColor: '#fee', border: '1px solid #fcc', borderRadius: '8px', padding: '10px', marginBottom: '20px', color: 'red' }}>
+            {error}
+          </div>
+        )}
+
+        {scheduleDetails && (
+          <div style={{ backgroundColor: '#f8f6f2', borderRadius: '8px', padding: '15px', marginBottom: '20px' }}>
+            <p><strong>Meal Details:</strong></p>
+            <p>{scheduleDetails.meal_type} • {scheduleDetails.portion_size} {scheduleDetails.portion_unit || 'grams'} • {scheduleDetails.food_type}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Food Brand *</label>
+            <input
+              type="text"
+              placeholder="e.g., Whiskas, Pedigree"
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              required
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Food Product *</label>
+            <input
+              type="text"
+              placeholder="e.g., Tuna, Chicken"
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              required
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Actual Portion Eaten *</label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input
+                type="number"
+                step="10"
+                placeholder="e.g., 150"
+                value={actualPortion}
+                onChange={(e) => setActualPortion(e.target.value)}
+                required
+                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }}
+              />
+              <span style={{ padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '8px' }}>
+                {scheduleDetails?.portion_unit || 'grams'}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: loading ? '#ccc' : '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Confirming...' : 'Confirm Feeding'}
+          </button>
+
+          <p style={{ fontSize: '12px', color: '#999', textAlign: 'center', marginTop: '15px' }}>
+            This will record the feeding and update your pet&apos;s feeding history.
+          </p>
+        </form>
       </div>
     </div>
   );
@@ -214,12 +192,8 @@ function FeedingConfirmContent() {
 
 export default function FeedingConfirmPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    }>
-      <FeedingConfirmContent />
+    <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>Loading...</div>}>
+      <ConfirmForm />
     </Suspense>
   );
 }

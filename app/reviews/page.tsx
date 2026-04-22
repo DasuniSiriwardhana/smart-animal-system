@@ -77,74 +77,62 @@ export default function ReviewsPage() {
     setLoading(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setSuccess(null);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setSubmitting(true);
+  setError(null);
+  setSuccess(null);
 
-    try {
-      // Validate based on type
-      if (submissionType === 'review' && !formData.review) {
-        setError("Please write your review");
-        setSubmitting(false);
-        return;
-      }
-      
-      if (submissionType === 'inquiry' && !formData.review) {
-        setError("Please write your inquiry");
-        setSubmitting(false);
-        return;
-      }
-
-      // Save to Supabase
-      const { error: insertError } = await supabase
-        .from('reviews')
-        .insert({
-          name: formData.name,
-          email: formData.email,
-          pet_name: formData.petName || null,
-          rating: submissionType === 'review' ? formData.rating : null,
-          review: formData.review,
-          type: submissionType,
-          status: 'pending',
-          is_approved: false,
-        });
-
-      if (insertError) throw insertError;
-
-      // Send email notification to admin
-      await fetch('/api/send-review-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          type: submissionType,
-        }),
-      });
-
-      setSuccess(
-        submissionType === 'review'
-          ? "Thank you for your review! It will be published after moderation."
-          : "Thank you for your inquiry! We'll get back to you within 24-48 hours."
-      );
-      
-      // Reset form
-      setFormData({ name: '', email: '', petName: '', rating: 5, review: '' });
-      
-      // Close dialog after 3 seconds
-      setTimeout(() => {
-        setFormOpen(false);
-        setSuccess(null);
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Error submitting:', error);
-      setError("Failed to submit. Please try again.");
-    } finally {
+  try {
+    if (!formData.review) {
+      setError(submissionType === 'review' ? "Please write your review" : "Please write your inquiry");
       setSubmitting(false);
+      return;
     }
-  };
+
+    // ✅ Call the API route instead of inserting directly
+    // This runs sentiment analysis and auto-approves good reviews
+    const response = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: formData.name,
+        email: formData.email,
+        pet_name: formData.petName || null,
+        rating: submissionType === 'review' ? formData.rating : null,
+        review: formData.review,
+        type: submissionType,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to submit');
+    }
+
+    // ✅ Show the message returned by the API (tells user if published or pending)
+    setSuccess(result.message);
+
+    // ✅ If auto-approved, refresh the reviews list immediately
+    if (result.approved) {
+      await fetchApprovedReviews();
+    }
+
+    setFormData({ name: '', email: '', petName: '', rating: 5, review: '' });
+
+    setTimeout(() => {
+      setFormOpen(false);
+      setSuccess(null);
+    }, 3000);
+
+  } catch (err) {
+    console.error('Error submitting:', err);
+    setError(err instanceof Error ? err.message : "Failed to submit. Please try again.");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const displayedReviews = showAll ? reviews : reviews.slice(0, 3);
 

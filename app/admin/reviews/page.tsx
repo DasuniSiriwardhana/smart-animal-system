@@ -80,39 +80,56 @@ useEffect(() => {
   };
 }, [checkAdminAccess]);
 
-  const approveReview = async (reviewId: string) => {
-    setActionLoading(reviewId);
-    await supabase
-      .from('reviews')
-      .update({ status: 'approved', is_approved: true })
-      .eq('id', reviewId);
-    
-    await fetchReviews();
+const approveReview = async (reviewId: string) => {
+  setActionLoading(reviewId);
+  try {
+    const response = await fetch('/api/reviews/admin/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewId, action: 'approve' })
+    });
+    if (response.ok) await fetchReviews();
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
     setActionLoading(null);
-  };
+  }
+};
 
-  const rejectReview = async (reviewId: string) => {
-    setActionLoading(reviewId);
-    await supabase
-      .from('reviews')
-      .update({ status: 'rejected' })
-      .eq('id', reviewId);
-    
-    await fetchReviews();
+const rejectReview = async (reviewId: string) => {
+  setActionLoading(reviewId);
+  try {
+    const response = await fetch('/api/reviews/admin/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewId, action: 'reject' })
+    });
+    if (response.ok) await fetchReviews();
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
     setActionLoading(null);
-  };
+  }
+};
 
-  const deleteReview = async (reviewId: string) => {
-    if (!confirm('Are you sure you want to delete this review?')) return;
-    setActionLoading(reviewId);
-    await supabase
+const deleteReview = async (reviewId: string) => {
+  if (!confirm('Are you sure you want to delete this review?')) return;
+  setActionLoading(reviewId);
+  try {
+    const { error } = await supabase
       .from('reviews')
       .delete()
       .eq('id', reviewId);
     
-    await fetchReviews();
+    if (!error) {
+      await fetchReviews();
+    }
+  } catch (error) {
+    console.error('Error deleting review:', error);
+  } finally {
     setActionLoading(null);
-  };
+  }
+};
 
   const pendingReviews = reviews.filter(r => r.status === 'pending');
   const approvedReviews = reviews.filter(r => r.status === 'approved');

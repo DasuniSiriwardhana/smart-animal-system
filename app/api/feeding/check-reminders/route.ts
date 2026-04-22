@@ -32,11 +32,12 @@ type ScheduleRow = {
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if test mode - but this should ONLY be used for manual testing
     const isTestMode = request.nextUrl.searchParams.get('test') === 'true';
 
     console.log("=== REMINDER CHECK STARTED ===");
     if (isTestMode) {
-      console.log("⚠️  TEST MODE — skipping time window, sending all pending schedules NOW");
+      console.log("  TEST MODE — WILL SEND IMMEDIATELY (bypasses time window)");
     }
 
     const now = new Date();
@@ -47,20 +48,17 @@ export async function GET(request: NextRequest) {
     const currentTimeMinutes = currentHour * 60 + currentMinute;
 
     console.log(`SL time: ${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
-    console.log(`EMAIL_USER set: ${!!process.env.EMAIL_USER} | EMAIL_PASS set: ${!!process.env.EMAIL_PASS}`);
 
     // Daily reset
     const todayMidnightUTC = new Date();
     todayMidnightUTC.setUTCHours(0, 0, 0, 0);
 
-    const { error: resetError } = await supabase
+    await supabase
       .from('feeding_schedules')
       .update({ reminder_sent: false, confirmed: false, skipped: false })
       .eq('is_active', true)
       .eq('reminder_sent', true)
       .lt('last_reminder_sent', todayMidnightUTC.toISOString());
-
-    if (resetError) console.warn("Reset warning (non-fatal):", resetError.message);
 
     const { data, error: fetchError } = await supabase
       .from('feeding_schedules')
@@ -108,28 +106,13 @@ export async function GET(request: NextRequest) {
     });
 
     let remindersSent = 0;
-    const skippedReasons: string[] = [];
 
     for (const schedule of schedules) {
       const pet = schedule.pets;
       const profile = pet?.profiles;
 
-      if (!pet) {
-        const reason = `SKIP ${schedule.id}: pet not found`;
-        console.log(`  ⚠️ ${reason}`);
-        skippedReasons.push(reason);
-        continue;
-      }
-      if (!profile) {
-        const reason = `SKIP ${schedule.id}: profile not found (user_id=${pet.user_id})`;
-        console.log(`  ⚠️ ${reason}`);
-        skippedReasons.push(reason);
-        continue;
-      }
-      if (!profile.email) {
-        const reason = `SKIP ${schedule.id}: email null (user_id=${pet.user_id})`;
-        console.log(`  ⚠️ ${reason}`);
-        skippedReasons.push(reason);
+      if (!pet || !profile || !profile.email) {
+        console.log(`  SKIP ${schedule.id}: missing data`);
         continue;
       }
 
@@ -148,13 +131,16 @@ export async function GET(request: NextRequest) {
         ` (${minutesUntil > 0 ? '+' : ''}${minutesUntil} min) → ${profile.email}`
       );
 
-      const inWindow = minutesUntil >= -5 && minutesUntil <= 30;
-      if (!isTestMode && !inWindow) {
-        console.log(`  ⏰ Outside window (${minutesUntil > 0 ? '+' : ''}${minutesUntil} min, need -5 to +30)`);
+      // Only send if within 20 minutes BEFORE meal (0 to 20 minutes)
+      // OR if in test mode
+      const shouldSend = isTestMode || (minutesUntil >= 0 && minutesUntil <= 20);
+      
+      if (!shouldSend) {
+        console.log(`   Not sending (${minutesUntil} min until meal, need 0-20 min)`);
         continue;
       }
 
-      console.log(`  ✅ ${isTestMode ? '[TEST] ' : ''}Sending to ${profile.email}...`);
+      console.log(`   Sending reminder to ${profile.email}...`);
 
       try {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -179,7 +165,6 @@ export async function GET(request: NextRequest) {
               .button { background: linear-gradient(135deg, #2f4454 0%, #da7b93 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 30px; display: inline-block; font-weight: 600; margin-top: 15px; }
               .footer { background: #f5f0e8; padding: 20px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #e0d6cc; }
               .pet-icon { font-size: 48px; text-align: center; margin-bottom: 10px; }
-              .test-badge { background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
             </style>
           </head>
           <body>
@@ -191,20 +176,14 @@ export async function GET(request: NextRequest) {
               </div>
               
               <div class="content">
-                ${isTestMode ? `
-                  <div class="test-badge">
-                    ⚠️ <strong>This is a TEST email</strong> — sent manually to verify the system works.
-                  </div>
-                ` : ''}
-                
                 <p style="font-size: 18px; margin-bottom: 5px;">Dear Pet Parent,</p>
                 <p>It's time to feed <strong style="color: #da7b93;">${pet.name}</strong>.</p>
                 
                 <div class="meal-card">
-                  <p><span class="meal-label">🍽️ Meal:</span> ${schedule.meal_type.charAt(0).toUpperCase() + schedule.meal_type.slice(1)}</p>
-                  <p><span class="meal-label">⏰ Time:</span> ${schedule.meal_time}</p>
-                  <p><span class="meal-label">📦 Portion:</span> ${schedule.portion_size ?? '?'} ${schedule.portion_unit ?? 'grams'}</p>
-                  <p><span class="meal-label">🍗 Food Type:</span> ${schedule.food_type ?? 'N/A'}</p>
+                  <p><span class="meal-label"> Meal:</span> ${schedule.meal_type.charAt(0).toUpperCase() + schedule.meal_type.slice(1)}</p>
+                  <p><span class="meal-label"> Time:</span> ${schedule.meal_time}</p>
+                  <p><span class="meal-label"> Portion:</span> ${schedule.portion_size ?? '?'} ${schedule.portion_unit ?? 'grams'}</p>
+                  <p><span class="meal-label"> Food Type:</span> ${schedule.food_type ?? 'N/A'}</p>
                 </div>
                 
                 <p>Please log the feeding after completion to maintain accurate health records.</p>
@@ -230,11 +209,11 @@ export async function GET(request: NextRequest) {
         await transporter.sendMail({
           from: `"PawHealth System" <${process.env.EMAIL_USER}>`,
           to: profile.email,
-          subject: `${isTestMode ? '[TEST] ' : ''}🦴 Feeding Reminder: Time to feed ${pet.name}`,
+          subject: `🦴 Feeding Reminder: Time to feed ${pet.name}`,
           html: emailHtml,
         });
 
-        const { error: updateError } = await supabase
+        await supabase
           .from('feeding_schedules')
           .update({
             reminder_sent: true,
@@ -242,27 +221,16 @@ export async function GET(request: NextRequest) {
           })
           .eq('id', schedule.id);
 
-        if (updateError) {
-          console.error(`  ⚠️ Failed to mark reminder_sent:`, updateError.message);
-        } else {
-          remindersSent++;
-          console.log(`  ✅ Sent + marked for ${pet.name} → ${profile.email}`);
-        }
+        remindersSent++;
+        console.log(`   Email sent to ${profile.email}`);
       } catch (emailErr: unknown) {
         const msg = emailErr instanceof Error ? emailErr.message : String(emailErr);
-        console.error(`  ❌ Email failed for ${profile.email}:`, msg);
-        skippedReasons.push(`Email failed for ${profile.email}: ${msg}`);
+        console.error(`   Email failed:`, msg);
       }
     }
 
-    console.log(`=== DONE: ${remindersSent} reminder(s) sent ===`);
-    return NextResponse.json({
-      remindersSent,
-      totalSchedules: schedules.length,
-      currentSLTime: `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`,
-      testMode: isTestMode,
-      ...(skippedReasons.length > 0 && { skippedReasons }),
-    });
+    console.log(`=== DONE: ${remindersSent} reminders sent ===`);
+    return NextResponse.json({ remindersSent });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
