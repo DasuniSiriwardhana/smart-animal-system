@@ -84,15 +84,13 @@ const handleSubmit = async (e: React.FormEvent) => {
   setSuccess(null);
 
   try {
-    if (!formData.review) {
-      setError(submissionType === 'review' ? "Please write your review" : "Please write your inquiry");
+    if (!formData.name || !formData.email || !formData.review) {
+      setError('Please fill in all required fields.');
       setSubmitting(false);
       return;
     }
 
-    // ✅ Call the API route instead of inserting directly
-    // This runs sentiment analysis and auto-approves good reviews
-    const response = await fetch('/api/reviews', {
+    const res = await fetch('/api/reviews', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -105,18 +103,32 @@ const handleSubmit = async (e: React.FormEvent) => {
       }),
     });
 
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || 'Failed to submit');
+    if (res.status === 404) {
+      setError('API route not found. Check that /api/reviews/route.ts exists and is deployed.');
+      return;
     }
 
-    // ✅ Show the message returned by the API (tells user if published or pending)
-    setSuccess(result.message);
+    const result = await res.json();
 
-    // ✅ If auto-approved, refresh the reviews list immediately
-    if (result.approved) {
-      await fetchApprovedReviews();
+    if (!res.ok) {
+      throw new Error(result.error || 'Submission failed');
+    }
+
+    //  Show message returned by API
+    setSuccess(result.message);
+    
+    //  If auto-approved, add to list immediately without waiting for refetch
+    if (result.approved && submissionType === 'review') {
+      const newReview: Review = {
+        id: result.id ?? crypto.randomUUID(),
+        name: formData.name,
+        pet_name: formData.petName || '',
+        rating: formData.rating,
+        review: formData.review,
+        type: 'review',
+        created_at: new Date().toISOString(),
+      };
+      setReviews(prev => [newReview, ...prev]);
     }
 
     setFormData({ name: '', email: '', petName: '', rating: 5, review: '' });
@@ -126,9 +138,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       setSuccess(null);
     }, 3000);
 
-  } catch (err) {
-    console.error('Error submitting:', err);
-    setError(err instanceof Error ? err.message : "Failed to submit. Please try again.");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Something went wrong.';
+    setError(msg);
   } finally {
     setSubmitting(false);
   }

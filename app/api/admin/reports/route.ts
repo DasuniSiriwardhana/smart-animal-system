@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 
     console.log('📅 Date Range:', { startDate, endDate });
 
-    // ✅ FETCH FROM SUBSCRIPTION_PAYMENTS TABLE (NOT invoices)
+    //  FETCH FROM SUBSCRIPTION_PAYMENTS TABLE (NOT invoices)
     const [
       { data: payments, error: paymentsError },
       { data: users, error: usersError },
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
     const typedPets = (pets || []) as Pet[];
     const typedFeedingLogs = (feedingLogs || []) as FeedingLog[];
 
-    // ✅ CALCULATE TOTAL REVENUE FROM SUBSCRIPTION_PAYMENTS
+    //  CALCULATE TOTAL REVENUE FROM SUBSCRIPTION_PAYMENTS
     let totalRevenue = 0;
     typedPayments.forEach(payment => {
       totalRevenue += payment.amount || 0;
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
     const totalSubs = typedSubscriptions.length || 1;
     const churnRate = Math.round((cancelledSubscriptions / totalSubs) * 1000) / 10;
 
-    // ✅ REVENUE TREND FROM SUBSCRIPTION_PAYMENTS
+    //  REVENUE TREND FROM SUBSCRIPTION_PAYMENTS
     const revenueTrend = generateRevenueTrend(typedPayments, startDate, endDate);
     
     // User growth trend
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
       { name: 'Premium', value: typedSubscriptions.filter(s => s.plan_type === 'premium').length, color: '#f59e0b' },
     ];
 
-    // ✅ TOP SPENDING USERS FROM SUBSCRIPTION_PAYMENTS
+    //  TOP SPENDING USERS FROM SUBSCRIPTION_PAYMENTS
     const userSpending = new Map<string, { email: string; total: number; plan: string }>();
     
     typedPayments.forEach(payment => {
@@ -206,7 +206,7 @@ export async function GET(request: Request) {
   }
 }
 
-// ✅ UPDATED to use SubscriptionPayment type
+//  UPDATED to use SubscriptionPayment type
 function generateRevenueTrend(payments: SubscriptionPayment[], startDate: string, endDate: string) {
   const trend = [];
   const start = new Date(startDate);

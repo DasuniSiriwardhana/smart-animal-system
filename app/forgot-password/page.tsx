@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
         return;
       }
 
-      // ✅ FIXED: Generate token in the SAME format as your database
+      //  FIXED: Generate token in the SAME format as your database
       // Your database has tokens like: "c8cbp0qfd9ig6o99c7hfn"
       // So use random string, NOT UUID
       const generateToken = () => {

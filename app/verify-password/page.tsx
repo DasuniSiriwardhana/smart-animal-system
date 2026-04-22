@@ -16,7 +16,7 @@ function VerifyPasswordContent() {
   const searchParams = useSearchParams();
   const rawToken = searchParams.get('token');
   
-  // ✅ Decode the token in case it's URL encoded
+  //  Decode the token in case it's URL encoded
   const token = rawToken ? decodeURIComponent(rawToken) : null;
   
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,7 @@ function VerifyPasswordContent() {
           .from('password_reset_requests')
           .select('user_id, expires_at, used')
           .eq('token', token)
-          .maybeSingle();  // ✅ Changed from .single() to .maybeSingle() to avoid errors
+          .maybeSingle();  //  Changed from .single() to .maybeSingle() to avoid errors
 
         console.log("🔍 Database result:", data);
         console.log("🔍 Database error:", error);

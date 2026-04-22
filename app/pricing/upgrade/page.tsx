@@ -111,7 +111,7 @@ function UpgradePageContent() {
         .maybeSingle();
 
       if (existingSub) {
-        // ✅ UPDATE existing subscription instead of creating new one
+        //  UPDATE existing subscription instead of creating new one
         const { data, error } = await supabase
           .from("subscriptions")
           .update({
@@ -129,7 +129,7 @@ function UpgradePageContent() {
         if (data && data[0]) subscriptionId = data[0].id;
         
       } else {
-        // ✅ INSERT new subscription
+        //  INSERT new subscription
         const { data, error } = await supabase
           .from("subscriptions")
           .insert({

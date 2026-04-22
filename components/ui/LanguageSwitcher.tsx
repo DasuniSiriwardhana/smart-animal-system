@@ -37,14 +37,14 @@ const LANGUAGES = [
 
 const SOUTH_ASIAN = ['si', 'ta', 'hi', 'bn', 'ur'];
 
-// ✅ Read localStorage OUTSIDE component to use as initial state (avoids setState-in-effect)
+//  Read localStorage OUTSIDE component to use as initial state (avoids setState-in-effect)
 function getSavedLang(): string {
   if (typeof window === 'undefined') return 'en';
   return localStorage.getItem('preferred-language') || 'en';
 }
 
 export function LanguageSwitcher() {
-  // ✅ Initialize directly from localStorage — no useEffect needed for this
+  //  Initialize directly from localStorage — no useEffect needed for this
   const [currentLang, setCurrentLang] = useState<string>(getSavedLang);
   const [ready, setReady] = useState(false);
   const appliedRef = useRef(false);
@@ -68,7 +68,7 @@ export function LanguageSwitcher() {
 
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ✅ Only run once on mount — currentLang from closure is fine here
+  }, []); //  Only run once on mount — currentLang from closure is fine here
 
   const changeLanguage = (langCode: string) => {
     setCurrentLang(langCode);
