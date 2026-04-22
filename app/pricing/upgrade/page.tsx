@@ -120,6 +120,11 @@ function UpgradePageContent() {
     setCvv(formatted);
   };
 
+  const handleCancel = () => {
+    // Navigate back to pricing page or dashboard
+    router.push("/pricing");
+  };
+
   const handleSubscribe = async () => {
     // Validate card details
     const cleanCardNumber = cardNumber.replace(/\s/g, '');
@@ -381,7 +386,7 @@ function UpgradePageContent() {
                 <div className="space-y-2">
                   <Label>Cardholder Name</Label>
                   <Input 
-                    placeholder="Card Holder Name "
+                    placeholder="Card Holder Name"
                     value={cardName}
                     onChange={(e) => setCardName(e.target.value.toUpperCase())}
                   />
@@ -426,11 +431,19 @@ function UpgradePageContent() {
                   </Alert>
                 )}
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex gap-3">
+                <Button 
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={isProcessing}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
                 <Button 
                   onClick={handleSubscribe} 
                   disabled={isProcessing}
-                  className="w-full"
+                  className="flex-1"
                   size="lg"
                 >
                   {isProcessing ? (
