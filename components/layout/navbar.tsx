@@ -42,6 +42,8 @@ export function Navbar() {
   const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [supportDropdownOpen, setSupportDropdownOpen] = useState(false)
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -62,6 +64,16 @@ export function Navbar() {
     return name.slice(0, 2).toUpperCase()
   }
 
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      router.push('/login')
+      router.refresh()
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
   // Navigation items for regular users
   const navItems = [
     { href: "/", label: "Home", icon: Home },
@@ -72,7 +84,7 @@ export function Navbar() {
   const authNavItems = user ? [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/pets", label: "Pets", icon: Heart },
-      { href: "/appointments", label: "Appointments", icon: Calendar },  
+    { href: "/appointments", label: "Appointments", icon: Calendar },  
     { href: "/insights", label: "AI Insights", icon: Brain },  
   ] : []
 
@@ -84,7 +96,6 @@ export function Navbar() {
   // Different nav items for admin vs regular users
   const getNavItems = () => {
     if (isAdmin) {
-      // Admin sees only essential items + admin panel link
       return [
         { href: "/", label: "Home", icon: Home },
         { href: "/admin", label: "Admin Panel", icon: Shield },
@@ -131,7 +142,7 @@ export function Navbar() {
             
             {/* Support Dropdown - only for non-admin users */}
             {!isAdmin && (
-              <DropdownMenu>
+              <DropdownMenu open={supportDropdownOpen} onOpenChange={setSupportDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1">
                     Support
@@ -142,7 +153,7 @@ export function Navbar() {
                   {supportItems.map((item) => {
                     const Icon = item.icon
                     return (
-                      <DropdownMenuItem key={item.href} asChild>
+                      <DropdownMenuItem key={item.href} asChild onClick={() => setSupportDropdownOpen(false)}>
                         <Link href={item.href} className="flex items-center gap-2 cursor-pointer">
                           <Icon className="h-4 w-4" />
                           {item.label}
@@ -157,11 +168,11 @@ export function Navbar() {
 
           {/* Right Side - Auth Buttons / User Menu */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* 🌍 Language Switcher - Visible for ALL users */}
+            {/* Language Switcher */}
             <LanguageSwitcher />
             
             {user ? (
-              <DropdownMenu>
+              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                   <div className="flex items-center gap-2 cursor-pointer hover:opacity-80">
                     <Avatar className="h-8 w-8 ring-2 ring-accent/20">
@@ -184,20 +195,26 @@ export function Navbar() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild onClick={() => setDropdownOpen(false)}>
                     <Link href="/profile" className="cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
                       Profile
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild onClick={() => setDropdownOpen(false)}>
                     <Link href="/settings" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       Settings
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={async () => await signOut()} className="text-red-600 cursor-pointer">
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setDropdownOpen(false)
+                      handleLogout()
+                    }} 
+                    className="text-red-600 cursor-pointer"
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
@@ -231,7 +248,7 @@ export function Navbar() {
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden border-t py-4 space-y-2">
-            {/* 🌍 Language Switcher in Mobile Menu */}
+            {/* Language Switcher in Mobile Menu */}
             <div className="px-4 py-2">
               <LanguageSwitcher />
             </div>
