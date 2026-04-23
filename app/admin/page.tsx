@@ -15,9 +15,11 @@ import { ChurnDashboard } from '@/components/admin/ChurnDashboard';
 type DashboardStats = {
   totalUsers: number;
   totalPets: number;
-  totalSales: number;
+  totalRevenue: number;
   activeToday: number;
   pendingReviews: number;
+  monthlyNewUsers: number;
+  monthlyRevenue: number;
 };
 
 type TopBrand = {
@@ -26,15 +28,26 @@ type TopBrand = {
   customer_count: number;
 };
 
+type RecentUser = {
+  id: string;
+  email: string;
+  name: string;
+  created_at: string;
+  plan: string;
+};
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalPets: 0,
-    totalSales: 0,
+    totalRevenue: 0,
     activeToday: 0,
     pendingReviews: 0,
+    monthlyNewUsers: 0,
+    monthlyRevenue: 0,
   });
   const [topBrands, setTopBrands] = useState<TopBrand[]>([]);
+  const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -48,6 +61,7 @@ export default function AdminDashboard() {
       await Promise.all([
         loadStats(),
         loadTopBrands(),
+        loadRecentUsers(),
       ]);
     } catch (error) {
       console.error('Error loading dashboard:', error);
@@ -58,25 +72,49 @@ export default function AdminDashboard() {
 
   const loadStats = async () => {
     try {
+      // Total users
       const { count: usersCount } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true });
 
+      // Total pets
       const { count: petsCount } = await supabase
         .from('pets')
         .select('*', { count: 'exact', head: true });
 
-      const { data: salesData } = await supabase
-        .from('market_aggregates')
-        .select('total_sales');
+      // Total revenue from subscription_payments
+      const { data: paymentsData } = await supabase
+        .from('subscription_payments')
+        .select('amount');
       
-      const totalSales = salesData?.reduce((sum, item) => sum + (item.total_sales || 0), 0) || 0;
+      const totalRevenue = paymentsData?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
 
+      // Monthly revenue (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data: monthlyPayments } = await supabase
+        .from('subscription_payments')
+        .select('amount')
+        .gte('payment_date', thirtyDaysAgo.toISOString().split('T')[0]);
+      
+      const monthlyRevenue = monthlyPayments?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
+
+      // Pending reviews (only bad reviews with rating <= 3 that are not approved)
       const { count: pendingCount } = await supabase
         .from('reviews')
         .select('*', { count: 'exact', head: true })
-        .eq('is_approved', false);
+        .eq('is_approved', false)
+        .eq('type', 'review')
+        .lte('rating', 3);
 
+      // Monthly new users
+      const { count: newUsersCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      // Active today (users with sensor data in last 24 hours)
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       
@@ -99,9 +137,11 @@ export default function AdminDashboard() {
       setStats({
         totalUsers: usersCount || 0,
         totalPets: petsCount || 0,
-        totalSales: totalSales,
+        totalRevenue: totalRevenue,
         activeToday: activeUsers,
         pendingReviews: pendingCount || 0,
+        monthlyNewUsers: newUsersCount || 0,
+        monthlyRevenue: monthlyRevenue,
       });
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -120,6 +160,20 @@ export default function AdminDashboard() {
       if (data) setTopBrands(data as TopBrand[]);
     } catch (error) {
       console.error('Error loading top brands:', error);
+    }
+  };
+
+  const loadRecentUsers = async () => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, email, name, created_at, plan')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (data) setRecentUsers(data as RecentUser[]);
+    } catch (error) {
+      console.error('Error loading recent users:', error);
     }
   };
 
@@ -165,7 +219,8 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Users</p>
-                    <p className="text-3xl font-bold">{stats.totalUsers}</p>
+                    <p className="text-3xl font-bold">{stats.totalUsers.toLocaleString()}</p>
+                    <p className="text-xs text-green-600 mt-1">+{stats.monthlyNewUsers} this month</p>
                   </div>
                   <Users className="h-8 w-8 text-blue-500" />
                 </div>
@@ -177,7 +232,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Pets</p>
-                    <p className="text-3xl font-bold">{stats.totalPets}</p>
+                    <p className="text-3xl font-bold">{stats.totalPets.toLocaleString()}</p>
                   </div>
                   <PawPrint className="h-8 w-8 text-green-500" />
                 </div>
@@ -189,7 +244,8 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Revenue</p>
-                    <p className="text-2xl font-bold">LKR {(stats.totalSales / 1000).toFixed(0)}K</p>
+                    <p className="text-2xl font-bold">LKR {(stats.totalRevenue / 1000).toFixed(0)}K</p>
+                    <p className="text-xs text-green-600 mt-1">+LKR {(stats.monthlyRevenue / 1000).toFixed(0)}K this month</p>
                   </div>
                   <DollarSign className="h-8 w-8 text-yellow-500" />
                 </div>
@@ -212,37 +268,69 @@ export default function AdminDashboard() {
           {/* Quick Actions */}
           <div className="grid gap-6 md:grid-cols-2 mb-8">
             <Link href="/admin/reviews">
-              <Card className="hover:shadow-lg transition-all cursor-pointer border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50">
+              <Card className="hover:shadow-lg transition-all cursor-pointer border-red-200 bg-gradient-to-r from-red-50 to-orange-50">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-yellow-700">Pending Reviews</p>
-                      <p className="text-3xl font-bold text-yellow-600">{stats.pendingReviews}</p>
-                      <p className="text-sm text-yellow-600 mt-1">Click to moderate</p>
+                      <p className="text-sm font-medium text-red-700">Pending Bad Reviews</p>
+                      <p className="text-3xl font-bold text-red-600">{stats.pendingReviews}</p>
+                      <p className="text-sm text-red-600 mt-1">Reviews with rating ≤ 3</p>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-yellow-200 flex items-center justify-center">
-                      <Star className="h-6 w-6 text-yellow-600" />
+                    <div className="h-12 w-12 rounded-full bg-red-200 flex items-center justify-center">
+                      <Star className="h-6 w-6 text-red-600" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </Link>
 
-            <Link href="/admin/market">
+            <Link href="/admin/users">
               <Card className="hover:shadow-lg transition-all cursor-pointer border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-blue-700">Market Analysis</p>
-                      <p className="text-2xl font-bold text-blue-600">View Insights</p>
-                      <p className="text-sm text-blue-600 mt-1">Brands & Sales Data</p>
+                      <p className="text-sm font-medium text-blue-700">User Management</p>
+                      <p className="text-2xl font-bold text-blue-600">View All Users</p>
+                      <p className="text-sm text-blue-600 mt-1">Manage profiles & plans</p>
                     </div>
-                    <TrendingUp className="h-12 w-12 text-blue-500" />
+                    <Users className="h-12 w-12 text-blue-500" />
                   </div>
                 </CardContent>
               </Card>
             </Link>
           </div>
+
+          {/* Recent Users */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Recent Signups
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {recentUsers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No users yet
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentUsers.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium">{user.name || user.email.split('@')[0]}</p>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm">{new Date(user.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{user.plan} plan</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Top Brands */}
           <Card>
