@@ -494,3 +494,13 @@ iframe + div {
 iframe ~ div:last-child {
   display: none !important;
 }
+
+a {
+  cursor: pointer;
+}
+
+nav button, 
+nav a {
+  position: relative;
+  z-index: 10;
+}

@@ -1,0 +1,52 @@
+{
+  "navbar": {
+    "home": "Home",
+    "about": "About",
+    "reviews": "Reviews",
+    "dashboard": "Dashboard",
+    "pets": "Pets",
+    "appointments": "Appointments",
+    "insights": "AI Insights",
+    "pricing": "Pricing",
+    "support": "Support",
+    "contact": "Contact Us",
+    "feedback": "Feedback",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "logout": "Logout",
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "common": {
+    "welcome": "Welcome",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit"
+  },
+  "footer": {
+    "copyright": "All rights reserved",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back",
+    "stats": "Statistics",
+    "recentActivity": "Recent Activity"
+  },
+  "pets": {
+    "title": "My Pets",
+    "addPet": "Add Pet",
+    "name": "Pet Name",
+    "species": "Species",
+    "age": "Age",
+    "weight": "Weight"
+  }
+}

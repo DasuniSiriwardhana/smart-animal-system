@@ -5,7 +5,6 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { Footer } from "@/components/layout/footer";
 import { SessionManager } from "@/components/auth/SessionManager";
 import { Chatbot } from "@/components/ui/Chatbot";
-import { I18nWrapper } from '@/components/I18nWrapper';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,14 +36,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <I18nWrapper>
           <AuthProvider>
             <SessionManager/>
             <main>{children}</main>
             <Footer />
             <Chatbot />
           </AuthProvider>
-        </I18nWrapper>
       </body>
     </html>
   );

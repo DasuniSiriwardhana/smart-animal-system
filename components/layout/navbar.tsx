@@ -1,6 +1,5 @@
 "use client";
 
-import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -173,66 +172,55 @@ export function Navbar() {
           {/* Right Side - Auth Buttons / User Menu */}
           <div className="flex items-center gap-2 shrink-0">
             {/* Language Switcher */}
-            <LanguageSwitcher />
             
             {user ? (
-              <div className="relative">
-                <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 focus:outline-none"
-                >
-                  <Avatar className="h-8 w-8 ring-2 ring-accent/20">
-                    <AvatarImage src={user?.avatar_url || ''} />
-                    <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-sm">
-                      {getInitials(user.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="hidden lg:inline-block text-sm font-medium">
-                    {user.name || user.email?.split('@')[0]}
-                  </span>
-                  <ChevronDown className="h-4 w-4 opacity-50" />
-                </button>
-                
-                {isUserMenuOpen && (
-                  <>
-                    {/* Backdrop to close when clicking outside */}
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setIsUserMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-md shadow-lg border z-50 py-1">
-                      <div className="px-4 py-3 border-b dark:border-gray-700">
+              <DropdownMenu open={isUserMenuOpen} onOpenChange={setIsUserMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 cursor-pointer hover:opacity-80 focus:outline-none">
+                    <Avatar className="h-8 w-8 ring-2 ring-accent/20">
+                      <AvatarImage src={user?.avatar_url || ''} />
+                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-sm">
+                        {getInitials(user.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden lg:inline-block text-sm font-medium">
+                      {user.name || user.email?.split('@')[0]}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col space-y-1">
                         <p className="text-sm font-medium">{user.name || user.email}</p>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
                       </div>
-                      <Link 
-                        href="/profile" 
-                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        <User className="h-4 w-4" />
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild onClick={() => setIsUserMenuOpen(false)}>
+                      <Link href="/profile" className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
                         Profile
                       </Link>
-                      <Link 
-                        href="/settings" 
-                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        <Settings className="h-4 w-4" />
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild onClick={() => setIsUserMenuOpen(false)}>
+                      <Link href="/settings" className="cursor-pointer">
+                        <Settings className="mr-2 h-4 w-4" />
                         Settings
                       </Link>
-                      <div className="border-t dark:border-gray-700 my-1"></div>
-                      <button 
-                        onClick={handleLogout}
-                        className="flex items-center gap-2 px-4 py-2 w-full text-left text-red-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Logout
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={handleLogout} 
+                      className="text-red-600 cursor-pointer focus:text-red-600"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenuPortal>
+              </DropdownMenu>
             ) : (
               <>
                 <Link href="/login">
@@ -263,7 +251,6 @@ export function Navbar() {
           <div className="md:hidden border-t py-4 space-y-2">
             {/* Language Switcher in Mobile Menu */}
             <div className="px-4 py-2">
-              <LanguageSwitcher />
             </div>
             
             {allNavItems.map((item) => {
