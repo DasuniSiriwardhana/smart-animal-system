@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: pet-disease-api
+    runtime: image
+    repo: https://github.com/YOUR_USERNAME/smart-animal-system
+    branch: master
+    rootDir: pet-disease-api
+    plan: free
