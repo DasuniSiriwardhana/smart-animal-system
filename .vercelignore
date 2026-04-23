@@ -1,0 +1,26 @@
+# Large ML Model Files (DO NOT upload to Vercel)
+*.h5
+*.keras
+*.pkl
+*.joblib
+
+# Converted TensorFlow.js models - keep the final model.json/.bin but ignore source checkpoints
+public/models/
+*.bin
+*.json
+
+# Dependencies and build artifacts
+node_modules/
+.next/
+.vercel
+
+# Python virtual environment
+venv/
+venv310/
+__pycache__/
+*.pyc
+
+# Misc
+.git
+*.log
+.DS_Store
