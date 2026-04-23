@@ -1,12 +1,12 @@
-name: Run Health Predictions
+name: Run ALL ML Models
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Runs every 6 hours
-  workflow_dispatch:  # Allows manual trigger
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
-  run-predictions:
+  run-models:
     runs-on: ubuntu-latest
     
     steps:
@@ -19,10 +19,10 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install supabase numpy
+        pip install supabase numpy pandas scikit-learn tensorflow
     
-    - name: Run predictions
-      run: python run_predictions.py
+    - name: Run all models
+      run: python run_models_automated.py
       env:
         NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
