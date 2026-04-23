@@ -76,6 +76,16 @@ interface Payment {
   status: string;
 }
 
+interface Invoice {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  plan_type: string;
+  billing_interval: string;
+}
+
 interface Pet {
   id: string;
   user_id: string;
@@ -343,7 +353,6 @@ export default function AdminReportsPage() {
   const [sendingEmail, setSendingEmail] = useState<boolean>(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [startDate, setStartDate] = useState<string>(() => {
-    // Set default date range to include April 8-10, 2026
     const d = new Date();
     d.setDate(d.getDate() - 30);
     return d.toISOString().split('T')[0];
@@ -361,317 +370,337 @@ export default function AdminReportsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-const fetchReportData = useCallback(async () => {
-  setLoading(true);
-  try {
-    console.log('=== FETCHING REPORT DATA ===');
-    console.log('Date range:', startDate, 'to', endDate);
-    
-    // Fetch all data
-    const { data: profilesData } = await supabase
-      .from('profiles')
-      .select('id, email, name, role, plan, created_at') as { data: Profile[] | null };
-    
-    const { data: subscriptionsData } = await supabase
-      .from('subscriptions')
-      .select('id, user_id, plan_type, status, start_date, end_date, amount') as { data: Subscription[] | null };
-    
-    const { data: paymentsData } = await supabase
-      .from('subscription_payments')
-      .select('id, user_id, plan_type, amount, payment_date, status')
-      .gte('payment_date', startDate)
-      .lte('payment_date', endDate) as { data: Payment[] | null };
-    
-    const { data: petsData } = await supabase
-      .from('pets')
-      .select('id, user_id, name, species, age, weight, created_at') as { data: Pet[] | null };
-    
-    const { data: feedingLogsData } = await supabase
-      .from('feeding_logs')
-      .select('id, pet_id, feeding_time, meal_type, confirmed, skipped')
-      .gte('feeding_time', `${startDate}T00:00:00+00:00`)
-      .lte('feeding_time', `${endDate}T23:59:59+00:00`) as { data: FeedingLog[] | null };
-    
-    const { data: appointmentsData } = await supabase
-      .from('appointments')
-      .select('id, pet_id, appointment_date, appointment_time, vet_name, status, reason')
-      .gte('appointment_date', startDate)
-      .lte('appointment_date', endDate) as { data: Appointment[] | null };
-    
-    const { data: medicationsData } = await supabase
-      .from('medications')
-      .select('id, pet_id, name, is_active, start_date, end_date') as { data: Medication[] | null };
-    
-    const { data: healthRecordsData } = await supabase
-      .from('health_records')
-      .select('id, pet_id, record_date, temperature, weight, heart_rate')
-      .gte('record_date', startDate)
-      .lte('record_date', endDate) as { data: HealthRecord[] | null };
-    
-    // FIXED: Fetch anomalies WITHOUT date filter first, then filter in JavaScript
-    console.log('Fetching all anomalies...');
-    const { data: allAnomaliesData, error: anomaliesError } = await supabase
-      .from('anomalies')
-      .select('id, pet_id, anomaly_date, anomaly_type, severity, description');
-    
-    if (anomaliesError) {
-      console.error('Anomalies fetch error:', anomaliesError);
-    }
-    
-    console.log('All anomalies in database:', allAnomaliesData?.length || 0);
-    
-    if (allAnomaliesData && allAnomaliesData.length > 0) {
-      console.log('Sample anomaly from DB:', allAnomaliesData[0]);
-      console.log('Anomaly dates:', allAnomaliesData.map((a: Anomaly) => a.anomaly_date));
-    }
-    
-    // Filter anomalies by date range
-    const startDateTime = new Date(startDate);
-    const endDateTime = new Date(endDate);
-    startDateTime.setHours(0, 0, 0, 0);
-    endDateTime.setHours(23, 59, 59, 999);
-    
-    const anomaliesData = (allAnomaliesData || []).filter((anomaly: Anomaly) => {
-      const anomalyDate = new Date(anomaly.anomaly_date);
-      return anomalyDate >= startDateTime && anomalyDate <= endDateTime;
-    });
-    
-    console.log('Anomalies after date filter:', anomaliesData.length);
-    
-    const { data: vetDocumentsData } = await supabase
-      .from('vet_documents')
-      .select('id, pet_id, doc_name, doc_category, doc_date') as { data: VetDocument[] | null };
-    
-    const { data: predictionsData } = await supabase
-      .from('predictions')
-      .select('id, pet_id, health_score, trend, confidence') as { data: Prediction[] | null };
-    
-    const profiles: Profile[] = profilesData || [];
-    const subscriptions: Subscription[] = subscriptionsData || [];
-    const payments: Payment[] = paymentsData || [];
-    const pets: Pet[] = petsData || [];
-    const feedingLogs: FeedingLog[] = feedingLogsData || [];
-    const appointments: Appointment[] = appointmentsData || [];
-    const medications: Medication[] = medicationsData || [];
-    const healthRecords: HealthRecord[] = healthRecordsData || [];
-    const anomalies: Anomaly[] = anomaliesData || [];
-    const vetDocuments: VetDocument[] = vetDocumentsData || [];
-    const predictions: Prediction[] = predictionsData || [];
-
-    // Calculate anomalies by severity
-    const lowCount = anomalies.filter((a: Anomaly) => a.severity?.toLowerCase() === 'low').length;
-    const mediumCount = anomalies.filter((a: Anomaly) => a.severity?.toLowerCase() === 'medium').length;
-    const highCount = anomalies.filter((a: Anomaly) => a.severity?.toLowerCase() === 'high').length;
-    
-    const anomaliesBySeverity: AnomalyBySeverity[] = [
-      { severity: 'Low', count: lowCount },
-      { severity: 'Medium', count: mediumCount },
-      { severity: 'High', count: highCount }
-    ];
-    
-    console.log('Anomalies by severity calculated:', { lowCount, mediumCount, highCount });
-    
-    // Calculate summary metrics
-    const totalRevenue: number = payments.reduce((sum: number, p: Payment) => sum + (p.amount || 0), 0);
-    const totalUsers: number = profiles.length;
-    const startDateObj: Date = new Date(startDate);
-    const endDateObj: Date = new Date(endDate);
-    const newUsers: number = profiles.filter((u: Profile) => {
-      const createdAt: Date = new Date(u.created_at);
-      return createdAt >= startDateObj && createdAt <= endDateObj;
-    }).length;
-    const totalPets: number = pets.length;
-    const activeSubscriptions: number = subscriptions.filter((s: Subscription) => s.status === 'active').length;
-    const expectedMonthlyRevenue: number = subscriptions
-      .filter((s: Subscription) => s.status === 'active')
-      .reduce((sum: number, s: Subscription) => sum + getPlanPrice(s.plan_type, 'month'), 0);
-    const avgRevenuePerUser: number = totalUsers > 0 ? totalRevenue / totalUsers : 0;
-    const conversionRate: number = totalUsers > 0 ? (activeSubscriptions / totalUsers) * 100 : 0;
-    
-    // Calculate revenue trend
-    const revenueTrend: RevenueTrendItem[] = [];
-    const start: Date = new Date(startDate);
-    const end: Date = new Date(endDate);
-    const paymentMap: Map<string, number> = new Map();
-    
-    payments.forEach((payment: Payment) => {
-      const dateKey: string = new Date(payment.payment_date).toISOString().split('T')[0];
-      paymentMap.set(dateKey, (paymentMap.get(dateKey) || 0) + payment.amount);
-    });
-    
-    for (let d: Date = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dateKey: string = d.toISOString().split('T')[0];
-      revenueTrend.push({ date: dateKey, revenue: paymentMap.get(dateKey) || 0, subscriptions: 0 });
-    }
-    
-    // Calculate user growth
-    const userGrowth: UserGrowthItem[] = [];
-    const userMap: Map<string, number> = new Map();
-    let cumulativeUsers: number = 0;
-    
-    profiles.forEach((profile: Profile) => {
-      const createdAt: Date = new Date(profile.created_at);
-      if (createdAt >= startDateObj && createdAt <= endDateObj) {
-        const dateKey: string = createdAt.toISOString().split('T')[0];
-        userMap.set(dateKey, (userMap.get(dateKey) || 0) + 1);
+  const fetchReportData = useCallback(async () => {
+    setLoading(true);
+    try {
+      console.log('=== FETCHING REPORT DATA ===');
+      console.log('Date range:', startDate, 'to', endDate);
+      
+      // Fetch all data
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, email, name, role, plan, created_at') as { data: Profile[] | null };
+      
+      const { data: subscriptionsData } = await supabase
+        .from('subscriptions')
+        .select('id, user_id, plan_type, status, start_date, end_date, amount') as { data: Subscription[] | null };
+      
+      const { data: paymentsData } = await supabase
+        .from('subscription_payments')
+        .select('id, user_id, plan_type, amount, payment_date, status')
+        .gte('payment_date', startDate)
+        .lte('payment_date', endDate) as { data: Payment[] | null };
+      
+      // Fetch invoices data for top spending users
+      const { data: invoicesData } = await supabase
+        .from('invoices')
+        .select('id, user_id, amount, status, created_at, plan_type, billing_interval')
+        .gte('created_at', `${startDate}T00:00:00+00:00`)
+        .lte('created_at', `${endDate}T23:59:59+00:00`) as { data: Invoice[] | null };
+      
+      const { data: petsData } = await supabase
+        .from('pets')
+        .select('id, user_id, name, species, age, weight, created_at') as { data: Pet[] | null };
+      
+      const { data: feedingLogsData } = await supabase
+        .from('feeding_logs')
+        .select('id, pet_id, feeding_time, meal_type, confirmed, skipped')
+        .gte('feeding_time', `${startDate}T00:00:00+00:00`)
+        .lte('feeding_time', `${endDate}T23:59:59+00:00`) as { data: FeedingLog[] | null };
+      
+      const { data: appointmentsData } = await supabase
+        .from('appointments')
+        .select('id, pet_id, appointment_date, appointment_time, vet_name, status, reason')
+        .gte('appointment_date', startDate)
+        .lte('appointment_date', endDate) as { data: Appointment[] | null };
+      
+      const { data: medicationsData } = await supabase
+        .from('medications')
+        .select('id, pet_id, name, is_active, start_date, end_date') as { data: Medication[] | null };
+      
+      const { data: healthRecordsData } = await supabase
+        .from('health_records')
+        .select('id, pet_id, record_date, temperature, weight, heart_rate')
+        .gte('record_date', startDate)
+        .lte('record_date', endDate) as { data: HealthRecord[] | null };
+      
+      const { data: allAnomaliesData, error: anomaliesError } = await supabase
+        .from('anomalies')
+        .select('id, pet_id, anomaly_date, anomaly_type, severity, description');
+      
+      if (anomaliesError) {
+        console.error('Anomalies fetch error:', anomaliesError);
       }
-    });
-    
-    for (let d: Date = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dateKey: string = d.toISOString().split('T')[0];
-      const newUsersCount: number = userMap.get(dateKey) || 0;
-      cumulativeUsers += newUsersCount;
-      userGrowth.push({ date: dateKey, newUsers: newUsersCount, totalUsers: cumulativeUsers });
-    }
-    
-    // Calculate plan distribution
-    const activeSubsList: Subscription[] = subscriptions.filter((s: Subscription) => s.status === 'active');
-    const planCounts: Record<string, number> = {};
-    activeSubsList.forEach((sub: Subscription) => { 
-      const plan: string = sub.plan_type || 'basic'; 
-      planCounts[plan] = (planCounts[plan] || 0) + 1; 
-    });
-    
-    const planDistribution: PlanDistributionItem[] = Object.entries(planCounts).map(([name, value]) => ({ 
-      name: name.charAt(0).toUpperCase() + name.slice(1), 
-      value, 
-      color: name === 'premium' ? '#f59e0b' : name === 'standard' ? '#3b82f6' : '#6b7280' 
-    }));
-    
-// Calculate top spending users - FIXED: Use active subscription amounts directly
-const userSpending: Map<string, number> = new Map();
-
-// ONLY use active subscriptions with their correct amounts
-subscriptions.forEach((sub: Subscription) => {
-  if (sub.status === 'active') {
-    // Use the amount directly from the subscription (already correct: 0, 2499, or 4999)
-    userSpending.set(sub.user_id, sub.amount || 0);
-  }
-});
-
-// For users without active subscriptions, set to 0
-profiles.forEach((profile: Profile) => {
-  if (!userSpending.has(profile.id)) {
-    userSpending.set(profile.id, 0);
-  }
-});
-
-const topSpendingUsers: TopSpendingUser[] = Array.from(userSpending.entries())
-  .map(([userId, totalSpent]) => {
-    const profile: Profile | undefined = profiles.find((p: Profile) => p.id === userId);
-    const subscription: Subscription | undefined = subscriptions.find((s: Subscription) => s.user_id === userId && s.status === 'active');
-    const expectedYearlySpend: number = subscription ? 
-      (subscription.plan_type === 'premium' ? 23999 : subscription.plan_type === 'standard' ? 11999 : 0) : 0;
-    return { 
-      email: profile?.email || 'Unknown', 
-      totalSpent, 
-      expectedYearlySpend, 
-      plan: subscription?.plan_type || profile?.plan || 'basic', 
-      billingInterval: 'month' 
-    };
-  })
-  .sort((a, b) => b.totalSpent - a.totalSpent)
-  .slice(0, 10);
-    
-    // Calculate activity metrics
-    const totalFeedings: number = feedingLogs.filter((f: FeedingLog) => f.confirmed && !f.skipped).length;
-    const thirtyDaysAgo: Date = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const activePets: number = pets.filter((pet: Pet) => 
-      feedingLogs.filter((f: FeedingLog) => f.pet_id === pet.id && new Date(f.feeding_time) >= thirtyDaysAgo).length > 0
-    ).length;
-    const avgFeedingsPerPet: number = pets.length > 0 ? totalFeedings / pets.length : 0;
-    const inactivePets: number = pets.length - activePets;
-    const totalAppointments: number = appointments.length;
-    const completedAppointments: number = appointments.filter((a: Appointment) => a.status === 'completed').length;
-    const upcomingAppointments: number = appointments.filter((a: Appointment) => 
-      a.status === 'scheduled' && new Date(a.appointment_date) >= new Date()
-    ).length;
-    const totalMedications: number = medications.length;
-    const activeMedications: number = medications.filter((m: Medication) => m.is_active).length;
-    const totalHealthRecords: number = healthRecords.length;
-    
-    // Calculate pet species distribution
-    const speciesCountsMap: Record<string, number> = {};
-    pets.forEach((pet: Pet) => { 
-      const species: string = pet.species || 'Other'; 
-      speciesCountsMap[species] = (speciesCountsMap[species] || 0) + 1; 
-    });
-    
-    const petSpeciesDistribution: PetSpeciesItem[] = Object.entries(speciesCountsMap)
-      .map(([species, count], index: number) => ({ species, count, color: COLORS[index % COLORS.length] }))
-      .sort((a, b) => b.count - a.count);
-    
-    // Calculate vet metrics
-    const totalDocuments: number = vetDocuments.length;
-    const documentsByCategory: DocCategory[] = [
-      { category: 'Vaccination', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'vaccination').length },
-      { category: 'Medical', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'medical').length },
-      { category: 'Prescription', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'prescription').length },
-      { category: 'Lab', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'lab').length },
-      { category: 'Other', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'other').length }
-    ];
-    
-    const upcomingAppointmentsList: UpcomingAppointment[] = appointments
-      .filter((a: Appointment) => a.status === 'scheduled' && new Date(a.appointment_date) >= new Date())
-      .slice(0, 5)
-      .map((a: Appointment) => {
-        const pet: Pet | undefined = pets.find((p: Pet) => p.id === a.pet_id);
-        return { pet_name: pet?.name || 'Unknown Pet', vet_name: a.vet_name, date: a.appointment_date, time: a.appointment_time };
+      
+      console.log('All anomalies in database:', allAnomaliesData?.length || 0);
+      
+      // Filter anomalies by date range
+      const startDateTime = new Date(startDate);
+      const endDateTime = new Date(endDate);
+      startDateTime.setHours(0, 0, 0, 0);
+      endDateTime.setHours(23, 59, 59, 999);
+      
+      const anomaliesData = (allAnomaliesData || []).filter((anomaly: Anomaly) => {
+        const anomalyDate = new Date(anomaly.anomaly_date);
+        return anomalyDate >= startDateTime && anomalyDate <= endDateTime;
       });
-    
-    const activityMetrics: ActivityMetrics = {
-      totalFeedings,
-      avgFeedingsPerPet: parseFloat(avgFeedingsPerPet.toFixed(1)),
-      activePets,
-      inactivePets,
-      totalAppointments,
-      completedAppointments,
-      upcomingAppointments,
-      totalMedications,
-      activeMedications,
-      totalHealthRecords
-    };
-    
-    const vetMetrics: VetMetrics = {
-      totalDocuments,
-      documentsByCategory,
-      upcomingAppointments: upcomingAppointmentsList
-    };
-    
-    const summary: SummaryMetrics = {
-      totalRevenue,
-      expectedMonthlyRevenue,
-      totalUsers,
-      newUsers,
-      totalPets,
-      activeSubscriptions,
-      churnRate: 0,
-      avgRevenuePerUser: Math.round(avgRevenuePerUser),
-      conversionRate: parseFloat(conversionRate.toFixed(1))
-    };
-    
-    setReportData({
-      summary,
-      revenueTrend,
-      userGrowth,
-      planDistribution,
-      topSpendingUsers,
-      activityMetrics,
-      petSpeciesDistribution,
-      anomaliesBySeverity,
-      vetMetrics
-    });
-    
-    console.log('=== REPORT DATA SET ===');
-    console.log('anomaliesBySeverity in reportData:', anomaliesBySeverity);
-    
-  } catch (error) {
-    console.error('Error fetching report data:', error);
-  } finally {
-    setLoading(false);
-  }
-}, [startDate, endDate]);
+      
+      console.log('Anomalies after date filter:', anomaliesData.length);
+      
+      const { data: vetDocumentsData } = await supabase
+        .from('vet_documents')
+        .select('id, pet_id, doc_name, doc_category, doc_date') as { data: VetDocument[] | null };
+      
+      const { data: predictionsData } = await supabase
+        .from('predictions')
+        .select('id, pet_id, health_score, trend, confidence') as { data: Prediction[] | null };
+      
+      const profiles: Profile[] = profilesData || [];
+      const subscriptions: Subscription[] = subscriptionsData || [];
+      const payments: Payment[] = paymentsData || [];
+      const invoices: Invoice[] = invoicesData || [];
+      const pets: Pet[] = petsData || [];
+      const feedingLogs: FeedingLog[] = feedingLogsData || [];
+      const appointments: Appointment[] = appointmentsData || [];
+      const medications: Medication[] = medicationsData || [];
+      const healthRecords: HealthRecord[] = healthRecordsData || [];
+      const anomalies: Anomaly[] = anomaliesData || [];
+      const vetDocuments: VetDocument[] = vetDocumentsData || [];
+      const predictions: Prediction[] = predictionsData || [];
+
+      // Calculate anomalies by severity
+      const lowCount = anomalies.filter((a: Anomaly) => a.severity?.toLowerCase() === 'low').length;
+      const mediumCount = anomalies.filter((a: Anomaly) => a.severity?.toLowerCase() === 'medium').length;
+      const highCount = anomalies.filter((a: Anomaly) => a.severity?.toLowerCase() === 'high').length;
+      
+      const anomaliesBySeverity: AnomalyBySeverity[] = [
+        { severity: 'Low', count: lowCount },
+        { severity: 'Medium', count: mediumCount },
+        { severity: 'High', count: highCount }
+      ];
+      
+      console.log('Anomalies by severity calculated:', { lowCount, mediumCount, highCount });
+      
+      // Calculate summary metrics
+      const totalRevenue: number = payments.reduce((sum: number, p: Payment) => sum + (p.amount || 0), 0);
+      const totalUsers: number = profiles.length;
+      const startDateObj: Date = new Date(startDate);
+      const endDateObj: Date = new Date(endDate);
+      const newUsers: number = profiles.filter((u: Profile) => {
+        const createdAt: Date = new Date(u.created_at);
+        return createdAt >= startDateObj && createdAt <= endDateObj;
+      }).length;
+      const totalPets: number = pets.length;
+      const activeSubscriptions: number = subscriptions.filter((s: Subscription) => s.status === 'active').length;
+      const expectedMonthlyRevenue: number = subscriptions
+        .filter((s: Subscription) => s.status === 'active')
+        .reduce((sum: number, s: Subscription) => sum + getPlanPrice(s.plan_type, 'month'), 0);
+      const avgRevenuePerUser: number = totalUsers > 0 ? totalRevenue / totalUsers : 0;
+      const conversionRate: number = totalUsers > 0 ? (activeSubscriptions / totalUsers) * 100 : 0;
+      
+      // Calculate revenue trend
+      const revenueTrend: RevenueTrendItem[] = [];
+      const start: Date = new Date(startDate);
+      const end: Date = new Date(endDate);
+      const paymentMap: Map<string, number> = new Map();
+      
+      payments.forEach((payment: Payment) => {
+        const dateKey: string = new Date(payment.payment_date).toISOString().split('T')[0];
+        paymentMap.set(dateKey, (paymentMap.get(dateKey) || 0) + payment.amount);
+      });
+      
+      for (let d: Date = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateKey: string = d.toISOString().split('T')[0];
+        revenueTrend.push({ date: dateKey, revenue: paymentMap.get(dateKey) || 0, subscriptions: 0 });
+      }
+      
+      // Calculate user growth
+      const userGrowth: UserGrowthItem[] = [];
+      const userMap: Map<string, number> = new Map();
+      let cumulativeUsers: number = 0;
+      
+      profiles.forEach((profile: Profile) => {
+        const createdAt: Date = new Date(profile.created_at);
+        if (createdAt >= startDateObj && createdAt <= endDateObj) {
+          const dateKey: string = createdAt.toISOString().split('T')[0];
+          userMap.set(dateKey, (userMap.get(dateKey) || 0) + 1);
+        }
+      });
+      
+      for (let d: Date = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateKey: string = d.toISOString().split('T')[0];
+        const newUsersCount: number = userMap.get(dateKey) || 0;
+        cumulativeUsers += newUsersCount;
+        userGrowth.push({ date: dateKey, newUsers: newUsersCount, totalUsers: cumulativeUsers });
+      }
+      
+      // Calculate plan distribution
+      const activeSubsList: Subscription[] = subscriptions.filter((s: Subscription) => s.status === 'active');
+      const planCounts: Record<string, number> = {};
+      activeSubsList.forEach((sub: Subscription) => { 
+        const plan: string = sub.plan_type || 'basic'; 
+        planCounts[plan] = (planCounts[plan] || 0) + 1; 
+      });
+      
+      const planDistribution: PlanDistributionItem[] = Object.entries(planCounts).map(([name, value]) => ({ 
+        name: name.charAt(0).toUpperCase() + name.slice(1), 
+        value, 
+        color: name === 'premium' ? '#f59e0b' : name === 'standard' ? '#3b82f6' : '#6b7280' 
+      }));
+      
+      // Calculate top spending users - FROM INVOICES TABLE
+      const userSpending: Map<string, number> = new Map();
+      
+      // Aggregate from invoices (only paid/completed invoices)
+      invoices.forEach((invoice: Invoice) => {
+        if (invoice.status === 'paid' || invoice.status === 'completed') {
+          const userId = invoice.user_id;
+          const currentTotal = userSpending.get(userId) || 0;
+          userSpending.set(userId, currentTotal + (invoice.amount || 0));
+        }
+      });
+      
+      // For users without any invoices, set to 0
+      profiles.forEach((profile: Profile) => {
+        if (!userSpending.has(profile.id)) {
+          userSpending.set(profile.id, 0);
+        }
+      });
+      
+      const topSpendingUsers: TopSpendingUser[] = Array.from(userSpending.entries())
+        .map(([userId, totalSpent]) => {
+          const profile: Profile | undefined = profiles.find((p: Profile) => p.id === userId);
+          
+          // Get the user's latest active subscription
+          const subscription: Subscription | undefined = subscriptions.find(
+            (s: Subscription) => s.user_id === userId && s.status === 'active'
+          );
+          
+          // Get the user's latest invoice to determine current plan
+          const latestInvoice = invoices
+            .filter((inv: Invoice) => inv.user_id === userId)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+          
+          // Calculate expected yearly spend based on their current plan
+          let expectedYearlySpend = 0;
+          const currentPlan = subscription?.plan_type || latestInvoice?.plan_type || profile?.plan || 'basic';
+          
+          if (currentPlan === 'premium') {
+            expectedYearlySpend = 23999; // Premium yearly
+          } else if (currentPlan === 'standard') {
+            expectedYearlySpend = 11999; // Standard yearly
+          }
+          
+          return { 
+            email: profile?.email || 'Unknown', 
+            totalSpent, 
+            expectedYearlySpend, 
+            plan: currentPlan, 
+            billingInterval: subscription?.billing_interval || latestInvoice?.billing_interval || 'month' 
+          };
+        })
+        .sort((a, b) => b.totalSpent - a.totalSpent)
+        .slice(0, 10);
+      
+      // Calculate activity metrics
+      const totalFeedings: number = feedingLogs.filter((f: FeedingLog) => f.confirmed && !f.skipped).length;
+      const thirtyDaysAgo: Date = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const activePets: number = pets.filter((pet: Pet) => 
+        feedingLogs.filter((f: FeedingLog) => f.pet_id === pet.id && new Date(f.feeding_time) >= thirtyDaysAgo).length > 0
+      ).length;
+      const avgFeedingsPerPet: number = pets.length > 0 ? totalFeedings / pets.length : 0;
+      const inactivePets: number = pets.length - activePets;
+      const totalAppointments: number = appointments.length;
+      const completedAppointments: number = appointments.filter((a: Appointment) => a.status === 'completed').length;
+      const upcomingAppointments: number = appointments.filter((a: Appointment) => 
+        a.status === 'scheduled' && new Date(a.appointment_date) >= new Date()
+      ).length;
+      const totalMedications: number = medications.length;
+      const activeMedications: number = medications.filter((m: Medication) => m.is_active).length;
+      const totalHealthRecords: number = healthRecords.length;
+      
+      // Calculate pet species distribution
+      const speciesCountsMap: Record<string, number> = {};
+      pets.forEach((pet: Pet) => { 
+        const species: string = pet.species || 'Other'; 
+        speciesCountsMap[species] = (speciesCountsMap[species] || 0) + 1; 
+      });
+      
+      const petSpeciesDistribution: PetSpeciesItem[] = Object.entries(speciesCountsMap)
+        .map(([species, count], index: number) => ({ species, count, color: COLORS[index % COLORS.length] }))
+        .sort((a, b) => b.count - a.count);
+      
+      // Calculate vet metrics
+      const totalDocuments: number = vetDocuments.length;
+      const documentsByCategory: DocCategory[] = [
+        { category: 'Vaccination', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'vaccination').length },
+        { category: 'Medical', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'medical').length },
+        { category: 'Prescription', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'prescription').length },
+        { category: 'Lab', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'lab').length },
+        { category: 'Other', count: vetDocuments.filter((d: VetDocument) => d.doc_category === 'other').length }
+      ];
+      
+      const upcomingAppointmentsList: UpcomingAppointment[] = appointments
+        .filter((a: Appointment) => a.status === 'scheduled' && new Date(a.appointment_date) >= new Date())
+        .slice(0, 5)
+        .map((a: Appointment) => {
+          const pet: Pet | undefined = pets.find((p: Pet) => p.id === a.pet_id);
+          return { pet_name: pet?.name || 'Unknown Pet', vet_name: a.vet_name, date: a.appointment_date, time: a.appointment_time };
+        });
+      
+      const activityMetrics: ActivityMetrics = {
+        totalFeedings,
+        avgFeedingsPerPet: parseFloat(avgFeedingsPerPet.toFixed(1)),
+        activePets,
+        inactivePets,
+        totalAppointments,
+        completedAppointments,
+        upcomingAppointments,
+        totalMedications,
+        activeMedications,
+        totalHealthRecords
+      };
+      
+      const vetMetrics: VetMetrics = {
+        totalDocuments,
+        documentsByCategory,
+        upcomingAppointments: upcomingAppointmentsList
+      };
+      
+      const summary: SummaryMetrics = {
+        totalRevenue,
+        expectedMonthlyRevenue,
+        totalUsers,
+        newUsers,
+        totalPets,
+        activeSubscriptions,
+        churnRate: 0,
+        avgRevenuePerUser: Math.round(avgRevenuePerUser),
+        conversionRate: parseFloat(conversionRate.toFixed(1))
+      };
+      
+      setReportData({
+        summary,
+        revenueTrend,
+        userGrowth,
+        planDistribution,
+        topSpendingUsers,
+        activityMetrics,
+        petSpeciesDistribution,
+        anomaliesBySeverity,
+        vetMetrics
+      });
+      
+      console.log('=== REPORT DATA SET ===');
+      console.log('Top spending users:', topSpendingUsers);
+      
+    } catch (error) {
+      console.error('Error fetching report data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [startDate, endDate]);
 
   useEffect(() => {
     fetchReportData();
@@ -828,7 +857,7 @@ const topSpendingUsers: TopSpendingUser[] = Array.from(userSpending.entries())
         <MetricCard label="Total Pets" value={reportData.summary.totalPets.toLocaleString()} icon={Heart} color="pink" />
       </div>
 
-      {/* Tabs - ONLY 4 tabs */}
+      {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>

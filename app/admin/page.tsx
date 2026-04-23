@@ -70,83 +70,89 @@ export default function AdminDashboard() {
     }
   };
 
-  const loadStats = async () => {
-    try {
-      // Total users
-      const { count: usersCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
+const loadStats = async () => {
+  try {
+    // Total users
+    const { count: usersCount } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true });
 
-      // Total pets
-      const { count: petsCount } = await supabase
+    // Total pets
+    const { count: petsCount } = await supabase
+      .from('pets')
+      .select('*', { count: 'exact', head: true });
+
+    // Total revenue from subscription_payments
+    const { data: paymentsData } = await supabase
+      .from('subscription_payments')
+      .select('amount');
+    
+    const totalRevenue = paymentsData?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
+
+    // Monthly revenue (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { data: monthlyPayments } = await supabase
+      .from('subscription_payments')
+      .select('amount')
+      .gte('payment_date', thirtyDaysAgo.toISOString().split('T')[0]);
+    
+    const monthlyRevenue = monthlyPayments?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
+
+    // Pending reviews - Only count unapproved reviews with rating <= 3
+    const { data: pendingReviewsData } = await supabase
+      .from('reviews')
+      .select('id, rating')
+      .eq('is_approved', false)
+      .eq('type', 'review');
+    
+    // Filter for rating <= 3 in JavaScript
+    const pendingBadReviews = pendingReviewsData?.filter(r => r.rating && r.rating <= 3).length || 0;
+
+    // Monthly new users
+    const { count: newUsersCount } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo.toISOString());
+
+    // Active today - FIXED: Use proper date range for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Get sensor data from today
+    const { data: activeSensorData } = await supabase
+      .from('sensor_data')
+      .select('pet_id')
+      .gte('sensor_time', today.toISOString())
+      .lt('sensor_time', tomorrow.toISOString());
+
+    let activeUsers = 0;
+    if (activeSensorData && activeSensorData.length > 0) {
+      const uniquePetIds = [...new Set(activeSensorData.map(s => s.pet_id))];
+      const { data: petsWithUsers } = await supabase
         .from('pets')
-        .select('*', { count: 'exact', head: true });
-
-      // Total revenue from subscription_payments
-      const { data: paymentsData } = await supabase
-        .from('subscription_payments')
-        .select('amount');
-      
-      const totalRevenue = paymentsData?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
-
-      // Monthly revenue (last 30 days)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
-      const { data: monthlyPayments } = await supabase
-        .from('subscription_payments')
-        .select('amount')
-        .gte('payment_date', thirtyDaysAgo.toISOString().split('T')[0]);
-      
-      const monthlyRevenue = monthlyPayments?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
-
-      // Pending reviews (only bad reviews with rating <= 3 that are not approved)
-      const { count: pendingCount } = await supabase
-        .from('reviews')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_approved', false)
-        .eq('type', 'review')
-        .lte('rating', 3);
-
-      // Monthly new users
-      const { count: newUsersCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', thirtyDaysAgo.toISOString());
-
-      // Active today (users with sensor data in last 24 hours)
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      const { data: activeSensorData } = await supabase
-        .from('sensor_data')
-        .select('pet_id')
-        .gte('sensor_time', yesterday.toISOString());
-
-      let activeUsers = 0;
-      if (activeSensorData && activeSensorData.length > 0) {
-        const uniquePetIds = [...new Set(activeSensorData.map(s => s.pet_id))];
-        const { data: petsWithUsers } = await supabase
-          .from('pets')
-          .select('user_id')
-          .in('id', uniquePetIds);
-        const uniqueUsers = [...new Set(petsWithUsers?.map(p => p.user_id) || [])];
-        activeUsers = uniqueUsers.length;
-      }
-
-      setStats({
-        totalUsers: usersCount || 0,
-        totalPets: petsCount || 0,
-        totalRevenue: totalRevenue,
-        activeToday: activeUsers,
-        pendingReviews: pendingCount || 0,
-        monthlyNewUsers: newUsersCount || 0,
-        monthlyRevenue: monthlyRevenue,
-      });
-    } catch (error) {
-      console.error('Error loading stats:', error);
+        .select('user_id')
+        .in('id', uniquePetIds);
+      const uniqueUsers = [...new Set(petsWithUsers?.map(p => p.user_id) || [])];
+      activeUsers = uniqueUsers.length;
     }
-  };
+
+    setStats({
+      totalUsers: usersCount || 0,
+      totalPets: petsCount || 0,
+      totalRevenue: totalRevenue,
+      activeToday: activeUsers,
+      pendingReviews: pendingBadReviews,
+      monthlyNewUsers: newUsersCount || 0,
+      monthlyRevenue: monthlyRevenue,
+    });
+  } catch (error) {
+    console.error('Error loading stats:', error);
+  }
+};
 
   const loadTopBrands = async () => {
     try {
@@ -163,19 +169,24 @@ export default function AdminDashboard() {
     }
   };
 
-  const loadRecentUsers = async () => {
-    try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, email, name, created_at, plan')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      if (data) setRecentUsers(data as RecentUser[]);
-    } catch (error) {
-      console.error('Error loading recent users:', error);
+const loadRecentUsers = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, name, created_at, plan')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    if (error) {
+      console.error('Error fetching users:', error);
+      return;
     }
-  };
+    
+    if (data) setRecentUsers(data as RecentUser[]);
+  } catch (error) {
+    console.error('Error loading recent users:', error);
+  }
+};
 
   const refreshData = async () => {
     setRefreshing(true);
@@ -265,40 +276,49 @@ export default function AdminDashboard() {
             </Card>
           </div>
 
-          {/* Quick Actions */}
-          <div className="grid gap-6 md:grid-cols-2 mb-8">
-            <Link href="/admin/reviews">
-              <Card className="hover:shadow-lg transition-all cursor-pointer border-red-200 bg-gradient-to-r from-red-50 to-orange-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-red-700">Pending Bad Reviews</p>
-                      <p className="text-3xl font-bold text-red-600">{stats.pendingReviews}</p>
-                      <p className="text-sm text-red-600 mt-1">Reviews with rating ≤ 3</p>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-red-200 flex items-center justify-center">
-                      <Star className="h-6 w-6 text-red-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/admin/users">
-              <Card className="hover:shadow-lg transition-all cursor-pointer border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-700">User Management</p>
-                      <p className="text-2xl font-bold text-blue-600">View All Users</p>
-                      <p className="text-sm text-blue-600 mt-1">Manage profiles & plans</p>
-                    </div>
-                    <Users className="h-12 w-12 text-blue-500" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+{/* Quick Actions */}
+<div className="grid gap-6 md:grid-cols-2 mb-8">
+  <Link href="/admin/reviews">
+    <Card className="hover:shadow-lg transition-all cursor-pointer border-red-200 bg-gradient-to-r from-red-50 to-orange-50">
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-red-700">Review Moderation</p>
+            {stats.pendingReviews > 0 ? (
+              <>
+                <p className="text-3xl font-bold text-red-600">{stats.pendingReviews}</p>
+                <p className="text-sm text-red-600 mt-1">Pending bad reviews (rating ≤ 3)</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xl font-semibold text-green-600">All Clear!</p>
+                <p className="text-sm text-green-600 mt-1">No pending bad reviews</p>
+              </>
+            )}
           </div>
+          <div className={`h-12 w-12 rounded-full flex items-center justify-center ${stats.pendingReviews > 0 ? 'bg-red-200' : 'bg-green-200'}`}>
+            <Star className={`h-6 w-6 ${stats.pendingReviews > 0 ? 'text-red-600' : 'text-green-600'}`} />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </Link>
+
+  <Link href="/admin/users">
+    <Card className="hover:shadow-lg transition-all cursor-pointer border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-blue-700">User Management</p>
+            <p className="text-2xl font-bold text-blue-600">View All Users</p>
+            <p className="text-sm text-blue-600 mt-1">Manage profiles & plans</p>
+          </div>
+          <Users className="h-12 w-12 text-blue-500" />
+        </div>
+      </CardContent>
+    </Card>
+  </Link>
+</div>
 
           {/* Recent Users */}
           <Card className="mb-8">

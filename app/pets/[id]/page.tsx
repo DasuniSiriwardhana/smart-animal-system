@@ -276,6 +276,10 @@ type DiseaseAnalysisResult = {
   disease: string
   confidence: number
   visible_signs: string
+  causes?: string[]           
+  recommendations?: string[]    
+  prevention?: string[]       
+  urgency?: string            
   all_predictions?: Array<{ disease: string; confidence: number }>
   error?: string
 }
@@ -553,69 +557,139 @@ ${new Date().toLocaleString()}
     }
   };
 
-  const analyzeUploadedImage = async () => {
-    if (!uploadedFile) return;
+const analyzeUploadedImage = async () => {
+  if (!uploadedFile) return;
+  
+  setAnalyzingImage(true);
+  setShowImageUploadModal(false);
+  setShowDiseaseModal(true);
+
+  try {
+    // COMPRESS IMAGE BEFORE UPLOAD
+    let fileToUpload = uploadedFile;
     
-    setAnalyzingImage(true);
-    setShowImageUploadModal(false);
-    setShowDiseaseModal(true);
+    // If file is larger than 5MB, compress it
+    if (uploadedFile.size > 5 * 1024 * 1024) {
+      console.log("Compressing large image...");
+      fileToUpload = await compressImage(uploadedFile);
+      console.log(`Compressed from ${uploadedFile.size} to ${fileToUpload.size} bytes`);
+    }
+    
+    const formData = new FormData();
+    formData.append("file", fileToUpload);
+    formData.append("pet_id", pet!.id);
+    formData.append("pet_name", pet!.name);
+    formData.append("pet_species", pet!.species);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", uploadedFile);
-      formData.append("pet_id", pet!.id);
-      formData.append("pet_name", pet!.name);
-      formData.append("pet_species", pet!.species);
+    const mlResponse = await fetch('/api/analyze-disease', {
+      method: 'POST',
+      body: formData,
+    });
 
-      const mlResponse = await fetch('/api/analyze-disease', {
-        method: 'POST',
-        body: formData,
+    const result = await mlResponse.json();
+
+    if (result.success) {
+      setDiseaseAnalysis({
+        success: true,
+        disease: result.disease,
+        confidence: result.confidence,
+        visible_signs: result.visible_signs,
+        causes: result.causes,
+        recommendations: result.recommendations,
+        prevention: result.prevention,
+        urgency: result.urgency,
+        all_predictions: result.all_predictions
       });
 
-      const result = await mlResponse.json();
+      await supabase.from("image_analysis").insert({
+        pet_id: pet!.id,
+        image_url: selectedImage,
+        analysis_date: new Date().toISOString().split('T')[0],
+        detected_conditions: result.disease,
+        confidence_score: result.confidence
+      });
 
-      if (result.success) {
-        setDiseaseAnalysis({
-          success: true,
-          disease: result.disease,
-          confidence: result.confidence,
-          visible_signs: result.visible_signs,
-          all_predictions: result.all_predictions
-        });
-
-        await supabase.from("image_analysis").insert({
-          pet_id: pet!.id,
-          image_url: selectedImage,
-          analysis_date: new Date().toISOString().split('T')[0],
-          detected_conditions: result.disease,
-          confidence_score: result.confidence
-        });
-
-      } else {
-        setDiseaseAnalysis({
-          success: false,
-          disease: "",
-          confidence: 0,
-          visible_signs: "",
-          error: result.message || "Analysis failed"
-        });
-      }
-
-    } catch (error) {
-      console.error("Disease detection error:", error);
+    } else {
       setDiseaseAnalysis({
         success: false,
         disease: "",
         confidence: 0,
         visible_signs: "",
-        error: "Service temporarily unavailable. Please try again later."
+        error: result.error || "Analysis failed"
       });
-    } finally {
-      setAnalyzingImage(false);
-      setSelectedImage(null);
-      setUploadedFile(null);
     }
-  };
+
+  } catch (error) {
+    console.error("Disease detection error:", error);
+    setDiseaseAnalysis({
+      success: false,
+      disease: "",
+      confidence: 0,
+      visible_signs: "",
+      error: "Service temporarily unavailable. Please try again later."
+    });
+  } finally {
+    setAnalyzingImage(false);
+    setSelectedImage(null);
+    setUploadedFile(null);
+  }
+};
+
+// Add this helper function to compress images
+const compressImage = (file: File): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Max dimensions
+        const maxWidth = 800;
+        const maxHeight = 800;
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              reject(new Error('Compression failed'));
+            }
+          },
+          'image/jpeg',
+          0.7 // Quality (70%)
+        );
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
+  });
+};
 
   const deletePet = async () => {
     setDeleting(true);
@@ -909,22 +983,27 @@ ${new Date().toLocaleString()}
                     <Camera className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                     <p className="text-sm text-gray-500 mb-3">Click to upload or take a photo</p>
                     <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          setUploadedFile(file)
-                          const reader = new FileReader()
-                          reader.onloadend = () => {
-                            setSelectedImage(reader.result as string)
-                          }
-                          reader.readAsDataURL(file)
-                        }
-                      }}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-white hover:file:bg-gray-700"
-                    />
+  type="file"
+  accept="image/jpeg,image/png,image/jpg"
+  capture="environment"
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert("Image too large. Please select an image under 10MB.");
+        return;
+      }
+      setUploadedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }}
+  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-white hover:file:bg-gray-700"
+/>
                   </div>
                 ) : (
                   <div>

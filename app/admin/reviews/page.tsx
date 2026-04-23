@@ -106,14 +106,24 @@ export default function AdminReviewsPage() {
     }
   };
 
-  // Filter: Pending bad reviews (rating <= 3, not approved, type = 'review')
-  const pendingReviews = reviews.filter(r => !r.is_approved && r.type === 'review' && r.rating && r.rating <= 3);
-  
-  // Filter: Good reviews auto-approved (rating >= 4, approved)
-  const goodReviews = reviews.filter(r => r.is_approved && r.type === 'review' && r.rating && r.rating >= 4);
-  
-  // Filter: Inquiries
-  const inquiries = reviews.filter(r => r.type === 'inquiry');
+// Filter: Pending bad reviews (rating <= 3, not approved, type = 'review')
+const pendingReviews = reviews.filter(r => 
+  !r.is_approved && 
+  r.type === 'review' && 
+  r.rating && 
+  r.rating <= 3
+);
+
+// Filter: Good reviews auto-approved (rating >= 4, approved)
+const goodReviews = reviews.filter(r => 
+  r.is_approved && 
+  r.type === 'review' && 
+  r.rating && 
+  r.rating >= 4
+);
+
+// Filter: Inquiries
+const inquiries = reviews.filter(r => r.type === 'inquiry');
 
   if (loading) {
     return (

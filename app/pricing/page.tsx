@@ -204,11 +204,11 @@ export default function PricingPage() {
     }
   }, [user]);
 
-  useEffect(() => {
-    fetchSubscription();
-    fetchInvoices();
-  }, [user, fetchSubscription, fetchInvoices]);
-
+useEffect(() => {
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  fetchSubscription();
+  fetchInvoices();
+}, [user, fetchSubscription, fetchInvoices]);
   const handleSubscribe = (planId: string) => {
     if (!user) {
       router.push('/login');
@@ -219,56 +219,23 @@ export default function PricingPage() {
       setError(`You are already on the ${planId} plan`);
       return;
     }
-
-    router.push(`/pricing/upgrade?plan=${planId}&cycle=${billingInterval}`);
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!confirm('Are you sure you want to cancel your subscription? You will lose access to premium features immediately, but your data will be preserved.')) {
+    
+    // Check if upgrade is allowed
+    const currentPlan = currentSubscription?.plan_type;
+    
+    // Premium users cannot change to any other plan
+    if (currentPlan === 'premium') {
+      setError('Premium users cannot downgrade. Please contact support for assistance.');
+      return;
+    }
+    
+    // Standard users can only upgrade to Premium (not downgrade to Basic)
+    if (currentPlan === 'standard' && planId === 'basic') {
+      setError('Standard users cannot downgrade to Basic. You can only upgrade to Premium.');
       return;
     }
 
-    setProcessing('cancel');
-    setError(null);
-    setSuccess(null);
-    
-    try {
-      const { error: subError } = await supabase
-        .from('subscriptions')
-        .update({ 
-          status: 'cancelled',
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user?.id)
-        .eq('status', 'active');
-
-      if (subError) throw subError;
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ 
-          plan: 'basic',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user?.id);
-
-      if (profileError) throw profileError;
-
-      await refreshUser();
-      await fetchSubscription();
-      
-      setSuccess('Your subscription has been cancelled. You are now on the Basic plan.');
-      
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
-      
-    } catch (err) {
-      console.error('Cancellation error:', err);
-      setError('Failed to cancel subscription. Please try again or contact support.');
-    } finally {
-      setProcessing(null);
-    }
+    router.push(`/pricing/upgrade?plan=${planId}&cycle=${billingInterval}`);
   };
 
   const getDaysRemaining = () => {
@@ -284,6 +251,42 @@ export default function PricingPage() {
       return value ? <CheckCircle className="h-5 w-5 text-green-500 mx-auto" /> : <XCircle className="h-5 w-5 text-red-400 mx-auto" />;
     }
     return <span className="text-sm">{value}</span>;
+  };
+
+  // Check if a plan upgrade is allowed
+  const isUpgradeAllowed = (planId: string): boolean => {
+    if (!currentSubscription) return true; // No subscription, can choose any
+    
+    const currentPlan = currentSubscription.plan_type;
+    
+    // Premium users cannot change to any plan
+    if (currentPlan === 'premium') return false;
+    
+    // Standard users can only upgrade to Premium
+    if (currentPlan === 'standard') {
+      return planId === 'premium';
+    }
+    
+    // Basic users can upgrade to Standard or Premium
+    if (currentPlan === 'basic') {
+      return planId === 'standard' || planId === 'premium';
+    }
+    
+    return true;
+  };
+
+  const getButtonMessage = (planId: string): string => {
+    if (!user) return "Sign Up to Subscribe";
+    if (currentSubscription?.plan_type === planId) return "Current Plan";
+    
+    const currentPlan = currentSubscription?.plan_type;
+    
+    if (currentPlan === 'premium') return "Cannot Change";
+    if (currentPlan === 'standard' && planId === 'basic') return "Cannot Downgrade";
+    if (currentPlan === 'standard' && planId === 'premium') return `Upgrade to Premium`;
+    if (currentPlan === 'basic') return `Upgrade to ${planId.charAt(0).toUpperCase() + planId.slice(1)}`;
+    
+    return `Subscribe ${billingInterval === 'month' ? 'Monthly' : 'Yearly'}`;
   };
 
   if (loading) {
@@ -344,39 +347,21 @@ export default function PricingPage() {
                       </p>
                     )}
                   </div>
-                  <Button 
-                    variant="destructive" 
-                    onClick={handleCancelSubscription}
-                    disabled={processing === 'cancel'}
-                  >
-                    {processing === 'cancel' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
-                    Cancel Subscription
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {user && !currentSubscription && (
-          <div className="mb-8">
-            <Card className="border-gray-200 bg-gray-50">
-              <CardContent className="pt-6">
-                <div className="flex flex-wrap justify-between items-center gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-5 w-5 text-gray-600" />
-                      <h2 className="text-lg font-semibold">Current Plan: Basic (Free)</h2>
+                  {currentSubscription.plan_type === 'premium' && (
+                    <div className="text-sm text-green-700 bg-green-100 px-3 py-1 rounded-full">
+                      Premium Plan - Best Value!
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      You are on the free Basic plan. Upgrade to access premium features.
-                    </p>
-                  </div>
-                  <Link href="/upgrade?plan=standard&cycle=monthly">
-                    <Button className="bg-gradient-to-r from-primary to-accent text-white">
-                      Upgrade Now
-                    </Button>
-                  </Link>
+                  )}
+                  {currentSubscription.plan_type === 'standard' && (
+                    <div className="text-sm text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+                      You can upgrade to Premium
+                    </div>
+                  )}
+                  {currentSubscription.plan_type === 'basic' && (
+                    <div className="text-sm text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
+                      Upgrade to unlock more features
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -415,7 +400,26 @@ export default function PricingPage() {
             const Icon = plan.icon;
             const price = billingInterval === 'month' ? plan.price.month : plan.price.year;
             const isActive = user ? isCurrentPlan(plan.id) : false;
-            const isDisabled = user && currentSubscription?.status === 'active' && !isActive;
+            const upgradeAllowed = isUpgradeAllowed(plan.id);
+            const buttonMessage = getButtonMessage(plan.id);
+            
+            let isDisabled = false;
+            let disabledReason = '';
+            
+            if (user && currentSubscription) {
+              if (currentSubscription.plan_type === 'premium') {
+                isDisabled = true;
+                disabledReason = 'Premium users cannot change plans';
+              } else if (currentSubscription.plan_type === 'standard' && plan.id === 'basic') {
+                isDisabled = true;
+                disabledReason = 'Cannot downgrade from Standard to Basic';
+              } else if (currentSubscription.plan_type === plan.id) {
+                isDisabled = true;
+                disabledReason = 'Current plan';
+              } else if (!upgradeAllowed) {
+                isDisabled = true;
+              }
+            }
 
             return (
               <Card key={plan.id} className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
@@ -481,8 +485,12 @@ export default function PricingPage() {
                       Current Plan
                     </Button>
                   ) : isDisabled ? (
-                    <Button className="w-full bg-gray-400 cursor-not-allowed" disabled>
-                      Upgrade to change
+                    <Button 
+                      className="w-full bg-gray-400 cursor-not-allowed" 
+                      disabled
+                      title={disabledReason}
+                    >
+                      {buttonMessage}
                     </Button>
                   ) : (
                     <Button
@@ -495,7 +503,7 @@ export default function PricingPage() {
                       ) : (
                         <CreditCard className="h-4 w-4 mr-2" />
                       )}
-                      {plan.id === 'basic' ? 'Current Plan' : `Subscribe ${billingInterval === 'month' ? 'Monthly' : 'Yearly'}`}
+                      {buttonMessage}
                     </Button>
                   )}
                 </CardContent>
@@ -547,8 +555,8 @@ export default function PricingPage() {
                       <tr className="bg-gray-50">
                         <td colSpan={4} className="p-3 font-semibold text-lg">
                           {category.name}
-                        </td>
-                      </tr>
+                         </td>
+                       </tr>
                       {category.features.map((feature) => (
                         <tr key={feature.id} className="border-b hover:bg-gray-50">
                           <td className="p-3 font-medium">{feature.name}</td>

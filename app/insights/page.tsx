@@ -79,6 +79,7 @@ export default function InsightsPage() {
   const [prediction, setPrediction] = useState<HealthPrediction | null>(null);
   const [activityPrediction, setActivityPrediction] = useState<ActivityPrediction | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+  const [logCount, setLogCount] = useState(0);
 
   const userPlan = (user?.plan || "basic") as "basic" | "standard" | "premium";
   const isPremium = userPlan === "premium";
@@ -132,7 +133,43 @@ export default function InsightsPage() {
       console.error("Error fetching logs:", error);
       return [];
     }
+    setLogCount(data?.length || 0);
     return data || [];
+  };
+
+  // Calculate confidence based on actual data quality
+  const calculateConfidence = (logs: DailyLog[]): number => {
+    if (logs.length === 0) return 0.3;
+    
+    let confidence = 0.5; // base
+    
+    // More logs = higher confidence
+    if (logs.length >= 30) confidence += 0.25;
+    else if (logs.length >= 14) confidence += 0.2;
+    else if (logs.length >= 7) confidence += 0.15;
+    else if (logs.length >= 3) confidence += 0.1;
+    
+    // Check data completeness (logs with all fields filled)
+    const completeLogs = logs.filter(log => 
+      log.activity_duration && 
+      log.activity_duration > 0 &&
+      log.sleep_duration && 
+      log.sleep_duration > 0 &&
+      log.water_intake && 
+      log.water_intake > 0 &&
+      log.mood
+    ).length;
+    const completeness = completeLogs / logs.length;
+    confidence += completeness * 0.15;
+    
+    // Check consistency (recent logs - last 7 days)
+    const recentLogs = logs.slice(0, 7);
+    if (recentLogs.length >= 5) confidence += 0.1;
+    
+    // Premium bonus
+    if (isPremium) confidence += 0.05;
+    
+    return Math.min(0.95, Math.max(0.4, confidence));
   };
 
   const calculateTrendScore = (logs: DailyLog[]): number => {
@@ -153,7 +190,7 @@ export default function InsightsPage() {
       return {
         score: 75,
         trend: "stable",
-        confidence: 0.7,
+        confidence: calculateConfidence(logs),
         recommendations: ["Start logging your pet's daily activities to get better insights"],
         risks: ["Insufficient data for accurate prediction"]
       };
@@ -165,24 +202,29 @@ export default function InsightsPage() {
     
     let score = 70;
     
+    // Activity scoring
     if (avgActivity >= 30 && avgActivity <= 60) score += 15;
     else if (avgActivity > 60) score += 10;
     else if (avgActivity > 15) score += 5;
     else if (avgActivity < 15) score -= 10;
     
+    // Sleep scoring
     if (avgSleep >= 8 && avgSleep <= 14) score += 10;
     else if (avgSleep >= 6 && avgSleep <= 16) score += 5;
     else score -= 10;
     
+    // Water intake scoring
     if (avgWater >= 0.5) score += 5;
     else score -= 5;
     
+    // Mood scoring
     const happyLogs = logs.filter(log => log.mood === "happy" || log.mood === "playful").length;
     const happyRatio = happyLogs / logs.length;
     if (happyRatio > 0.7) score += 10;
     else if (happyRatio > 0.4) score += 5;
     else score -= 10;
     
+    // Trend calculation
     const recentLogs = logs.slice(0, 7);
     const olderLogs = logs.slice(7, 14);
     const recentScore = recentLogs.length > 0 ? calculateTrendScore(recentLogs) : score;
@@ -192,9 +234,12 @@ export default function InsightsPage() {
     if (recentScore > olderScore + 5) trend = "improving";
     else if (recentScore < olderScore - 5) trend = "declining";
     
+    // Generate recommendations based on actual data
     let recommendations: string[] = [];
     if (avgActivity < 30) recommendations.push("Increase daily walks by 15 minutes");
+    if (avgActivity > 90) recommendations.push("Monitor for over-exercise; ensure adequate rest");
     if (avgSleep < 8) recommendations.push("Ensure quiet sleeping environment");
+    if (avgSleep > 16) recommendations.push("Monitor for lethargy; consult vet if persistent");
     if (avgWater < 0.5) recommendations.push("Encourage more water intake");
     if (happyRatio < 0.5) recommendations.push("Add more playtime and interactive toys");
     
@@ -202,16 +247,19 @@ export default function InsightsPage() {
       recommendations.push("Great job! Keep maintaining this healthy routine");
     }
     
+    // Generate risks based on actual data
     let risks: string[] = [];
-    if (avgActivity < 15) risks.push("Low activity level detected");
-    if (avgSleep < 6) risks.push("Sleep deprivation risk");
-    if (avgWater < 0.3) risks.push("Dehydration risk");
+    if (avgActivity < 15) risks.push("Low activity level detected - risk of obesity");
+    if (avgSleep < 6) risks.push("Sleep deprivation risk - may affect immune system");
+    if (avgSleep > 16) risks.push("Excessive sleeping - possible underlying health issue");
+    if (avgWater < 0.3) risks.push("Dehydration risk - monitor water intake");
+    if (happyRatio < 0.3) risks.push("Persistent low mood - possible stress or illness");
     
-    if (risks.length === 0) {
+    if (risks.length === 0 && logs.length >= 7) {
       risks.push("No major health risks detected");
     }
     
-    // Apply plan limits with type safety
+    // Apply plan limits
     const maxRecs = typeof maxRecommendations === 'number' ? maxRecommendations : 10;
     const maxRisks = typeof maxRecommendations === 'number' ? Math.min(maxRecommendations, 3) : 3;
     recommendations = recommendations.slice(0, maxRecs);
@@ -220,7 +268,7 @@ export default function InsightsPage() {
     return {
       score: Math.min(100, Math.max(0, Math.round(score))),
       trend,
-      confidence: isPremium ? 0.85 : 0.65,
+      confidence: calculateConfidence(logs),
       recommendations,
       risks
     };
@@ -245,7 +293,7 @@ export default function InsightsPage() {
     return {
       expectedActivity: Math.round(recentActivity),
       comparison,
-      pattern: isPremium ? ["detailed", "advanced", "AI-powered"] : ["basic", "limited", "upgrade for more"]
+      pattern: [`Based on ${logs.length} days of data, your pet's activity is ${comparison} average`]
     };
   };
 
@@ -333,6 +381,18 @@ export default function InsightsPage() {
     }
   };
 
+  const getConfidenceLabel = (confidence: number) => {
+    if (confidence >= 0.8) return "High";
+    if (confidence >= 0.6) return "Medium";
+    return "Low";
+  };
+
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 0.8) return "bg-green-100 text-green-700";
+    if (confidence >= 0.6) return "bg-yellow-100 text-yellow-700";
+    return "bg-gray-100 text-gray-700";
+  };
+
   const selectedPetData = pets.find(p => p.id === selectedPet);
 
   if (fetchingPets) {
@@ -407,6 +467,17 @@ export default function InsightsPage() {
           </Select>
         </div>
 
+        {/* Data Quality Indicator */}
+        {logCount > 0 && (
+          <div className="mb-4 flex items-center justify-end gap-2">
+            <span className="text-xs text-muted-foreground">Data quality:</span>
+            <Badge className={getConfidenceColor(prediction?.confidence || 0.5)}>
+              {getConfidenceLabel(prediction?.confidence || 0.5)} confidence
+              {logCount > 0 && ` (${logCount} days of data)`}
+            </Badge>
+          </div>
+        )}
+
         {/* Upgrade Banner for Non-Premium Users */}
         {!isPremium && (
           <Alert className="mb-6 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200">
@@ -430,7 +501,7 @@ export default function InsightsPage() {
                 <Brain className="h-16 w-16 animate-pulse mx-auto text-primary" />
                 <div>
                   <p className="text-lg font-medium">AI is analyzing your pet&apos;s data...</p>
-                  <p className="text-sm text-muted-foreground">Analyzing recent activity logs</p>
+                  <p className="text-sm text-muted-foreground">Analyzing {logCount} days of activity logs</p>
                 </div>
                 <Progress value={65} className="w-64 mx-auto" />
               </div>
@@ -452,7 +523,7 @@ export default function InsightsPage() {
                   </Badge>
                 </div>
                 <CardDescription>
-                  AI confidence: {(prediction.confidence * 100).toFixed(0)}%
+                  Based on {logCount} days of data | AI confidence: {(prediction.confidence * 100).toFixed(0)}% ({getConfidenceLabel(prediction.confidence)})
                   {!isPremium && " (Upgrade for higher accuracy)"}
                 </CardDescription>
               </CardHeader>
@@ -520,6 +591,7 @@ export default function InsightsPage() {
                   <div className="p-4 bg-muted rounded-lg">
                     <p className="text-sm text-muted-foreground">Avg Daily Activity</p>
                     <p className="text-2xl font-bold">{activityPrediction.expectedActivity} min</p>
+                    <p className="text-xs text-muted-foreground mt-1">Based on {logCount} days</p>
                   </div>
                   <div className="p-4 bg-muted rounded-lg">
                     <p className="text-sm text-muted-foreground">Activity Level</p>
@@ -531,12 +603,17 @@ export default function InsightsPage() {
                     </Badge>
                   </div>
                   <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground">Analysis Type</p>
+                    <p className="text-sm text-muted-foreground">Data Coverage</p>
                     <p className="text-sm font-medium mt-1">
-                      {isPremium ? "Advanced AI Analysis" : "Basic Analysis"}
+                      {logCount} days logged
                     </p>
                   </div>
                 </div>
+                {activityPrediction.pattern[0] && (
+                  <p className="text-sm text-muted-foreground mt-4 text-center">
+                    {activityPrediction.pattern[0]}
+                  </p>
+                )}
               </CardContent>
             </Card>
 
